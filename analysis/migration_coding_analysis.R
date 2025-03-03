@@ -1,7 +1,7 @@
 install.packages("pacman")
 library(pacman)
 p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, officer, readr, RColorBrewer)
-remotes::install_github("ebmdatalab/codeusage")
+remotes::install_github("bennettoxford/opencodes")
 library(opencodes)
 
 # Create df from the snomed codes 
@@ -22,7 +22,7 @@ general_migrant_codelist_table <- flextable(general_migrant_in) |>
   set_table_properties(layout = "autofit")
 general_migrant_codelist_table <- read_docx() %>% 
   body_add_flextable(general_migrant_codelist_table) 
-print(general_migrant_codelist_table, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/general_migrant_codelist_table.docx")
+print(general_migrant_codelist_table, target = "output/general_migrant_codelist_table.docx")
 
 general_migrant_data <- snomed_usage |> 
   filter(snomed_code %in% general_migrant_codelist$code) 
@@ -42,7 +42,7 @@ general_migrant_top5 <- flextable(general_migrant_top5) |>
   set_table_properties(layout = "autofit")
 general_migrant_top5_doc <- read_docx() %>% 
   body_add_flextable(general_migrant_top5) 
-print(general_migrant_top5_doc, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/general_migrant_top5.docx")
+print(general_migrant_top5_doc, target = "output/general_migrant_top5.docx")
 
 for_plot <- general_migrant_data |>
   group_by(start_date, end_date) |>
@@ -60,7 +60,7 @@ cob_codelist_table <- flextable(cob_in) |>
   set_table_properties(layout = "autofit")
 cob_codelist_table <- read_docx() %>% 
   body_add_flextable(cob_codelist_table) 
-print(cob_codelist_table, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/cob_codelist_table.docx")
+print(cob_codelist_table, target = "output/cob_codelist_table.docx")
 
 cob_data <- snomed_usage |> 
   filter(snomed_code %in% cob_codelist$code) 
@@ -80,7 +80,7 @@ cob_top5 <- flextable(cob_top5) |>
   set_table_properties(layout = "autofit")
 cob_top5_doc <- read_docx() %>% 
   body_add_flextable(cob_top5) 
-print(cob_top5_doc, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/cob_top5.docx")
+print(cob_top5_doc, target = "output/Tables_figures/cob_top5.docx")
 
 for_plot_cob <- cob_data |>
   group_by(start_date, end_date) |>
@@ -98,7 +98,7 @@ interpreter_codelist_table <- flextable(interpreter_in) |>
   set_table_properties(layout = "autofit")
 interpreter_codelist_table <- read_docx() %>% 
   body_add_flextable(interpreter_codelist_table) 
-print(interpreter_codelist_table, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/interpreter_codelist_table.docx")
+print(interpreter_codelist_table, target = "output/interpreter_codelist_table.docx")
 
 interpreter_data <- snomed_usage |> 
   filter(snomed_code %in% interpreter_codelist$code) 
@@ -118,7 +118,7 @@ interpreter_top5 <- flextable(interpreter_top5) |>
   set_table_properties(layout = "autofit")
 interpreter_top5_doc <- read_docx() %>% 
   body_add_flextable(interpreter_top5) 
-print(interpreter_top5_doc, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/interpreter_top5.docx")
+print(interpreter_top5_doc, target = "output/interpreter_top5.docx")
 
 for_plot_interpreter <- interpreter_data |>
   group_by(start_date, end_date) |>
@@ -136,7 +136,7 @@ refugee_codelist_table <- flextable(refugee_in) |>
   set_table_properties(layout = "autofit")
 refugee_codelist_table <- read_docx() %>% 
   body_add_flextable(refugee_codelist_table) 
-print(refugee_codelist_table, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/refugee_codelist_table.docx")
+print(refugee_codelist_table, target = "output/refugee_codelist_table.docx")
 
 refugee_data <- snomed_usage |> 
   filter(snomed_code %in% refugee_codelist$code) 
@@ -156,7 +156,7 @@ refugee_top5 <- flextable(refugee_top5) |>
   set_table_properties(layout = "autofit")
 refugee_top5_doc <- read_docx() %>% 
   body_add_flextable(refugee_top5) 
-print(refugee_top5_doc, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/refugee_top5.docx")
+print(refugee_top5_doc, target = "output/refugee_top5.docx")
 
 for_plot_refugee <- refugee_data |>
   group_by(start_date, end_date) |>
@@ -174,7 +174,7 @@ legal_status_codelist_table <- flextable(legal_status_in) |>
   set_table_properties(layout = "autofit")
 legal_status_codelist_table <- read_docx() %>% 
   body_add_flextable(legal_status_codelist_table) 
-print(legal_status_codelist_table, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/legal_status_codelist_table.docx")
+print(legal_status_codelist_table, target = "output/legal_status_codelist_table.docx")
 
 legal_status_data <- snomed_usage |> 
   filter(snomed_code %in% legal_status_codelist$code) 
@@ -194,7 +194,7 @@ legal_status_top5 <- flextable(legal_status_top5) |>
   set_table_properties(layout = "autofit")
 legal_status_top5_doc <- read_docx() %>% 
   body_add_flextable(legal_status_top5) 
-print(legal_status_top5_doc, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/legal_status_top5.docx")
+print(legal_status_top5_doc, target = "output/legal_status_top5.docx")
 
 for_plot_legalstatus <- legal_status_data |>
   group_by(start_date, end_date) |>
@@ -238,7 +238,7 @@ combined_totals_table <- flextable(combined_totals) |>
   set_table_properties(layout = "autofit")
 combined_totals_table <- read_docx() %>% 
   body_add_flextable(combined_totals_table) 
-print(combined_totals_table, target = "C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/combined_totals_table.docx")
+print(combined_totals_table, target = "output/combined_totals_table.docx")
 
 
 ## Plot data ----
@@ -277,7 +277,7 @@ plot <- ggplot(combined_data, aes(x = end_date, y = usage, color = code_type)) +
 
 plot
 
-ggsave("C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/migration_code_usage.png", plot = plot, width = 8, height = 6, dpi = 300)
+ggsave("output/migration_code_usage.png", plot = plot, width = 8, height = 6, dpi = 300)
 
 
 # All SNOMED-CT code usage -----
@@ -310,7 +310,7 @@ plot_allcodes <- ggplot(for_plot_allcodes, aes(x = end_date, y = usage)) +
 
 plot_allcodes
 
-ggsave("C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/allsnomed_code_usage.png", plot = plot_allcodes, width = 8, height = 6, dpi = 300)
+ggsave("output/allsnomed_code_usage.png", plot = plot_allcodes, width = 8, height = 6, dpi = 300)
 
 # Comparison with overall SNOMED-CT code usage ----
 
@@ -346,7 +346,7 @@ plot_comparison <- ggplot(comparison, aes(x = end_date, y = percent)) +
 
 plot_comparison
 
-ggsave("C:/Users/Yamina/OneDrive - Nexus365/Documents/Fellowship documents Oxford/Code usage paper/Tables_figures/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
+ggsave("output/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
 
 
 
