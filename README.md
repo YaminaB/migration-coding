@@ -1,6 +1,6 @@
 # migration-coding
 
-[View on OpenSAFELY](https://jobs.opensafely.org/repo/https%253A%252F%252Fgithub.com%252Fopensafely%252Fmigration-coding)
+This is an analysis of migration coding using the NHS England’s SNOMED Code Usage in Primary Care datasets from 2011/12 to 2023/24 made available through the opencodes R package.
 
 Details of the purpose and any published outputs from this project can be found at the link above.
 
