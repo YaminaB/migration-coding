@@ -1,14 +1,14 @@
-install.packages("pacman")
+#install.packages("pacman")
 library(pacman)
 p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, officer, readr, RColorBrewer)
-remotes::install_github("bennettoxford/opencodes")
+#remotes::install_github("bennettoxford/opencodes")
 library(opencodes)
 
 # Create df from the snomed codes 
 snomed_usage <- opencodes::snomed_usage
 
-codelist_out <- codelist |> 
-  filter(!(code %in% snomed_usage$snomed_code))
+#codelist_out <- codelist |> 
+#  filter(!(code %in% snomed_usage$snomed_code))
 
 # general migrant ######
 
@@ -240,11 +240,10 @@ combined_totals_table <- read_docx() %>%
   body_add_flextable(combined_totals_table) 
 print(combined_totals_table, target = "output/combined_totals_table.docx")
 
-
 ## Plot data ----
 
 plot <- ggplot(combined_data, aes(x = end_date, y = usage, color = code_type)) +
-  geom_line(aes(linewidth = code_type)) + 
+  geom_line(aes(linewidth = code_type, linetype = code_type)) + 
   geom_point() +  
   #scale_color_viridis_d() +  
   scale_color_brewer(palette = "Dark2") +
@@ -254,6 +253,12 @@ plot <- ggplot(combined_data, aes(x = end_date, y = usage, color = code_type)) +
                                  "Immigration legal status codes" = 0.5, 
                                  "Refugee or asylum-seeker codes" = 0.5, 
                                  "Interpreter-related codes" = 0.5))+
+  scale_linetype_manual(values = c("Immigration to the UK (ONS)" = "dashed", 
+                                   "All migration-related codes" = "solid", 
+                                   "Country of birth codes" = "solid", 
+                                   "Immigration legal status codes" = "solid", 
+                                   "Refugee or asylum-seeker codes" = "solid", 
+                                   "Interpreter-related codes" = "solid")) +
   labs(
     title = " ",
     x = "Date",
