@@ -1,6 +1,6 @@
 #install.packages("pacman")
 library(pacman)
-p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, officer, readr, RColorBrewer)
+p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, officer, readr, RColorBrewer, readxl, readODS, tidyr)
 #remotes::install_github("bennettoxford/opencodes")
 library(opencodes)
 
@@ -353,6 +353,138 @@ plot_comparison
 
 ggsave("output/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
 
+# Asylum applications, initial positive decisions, and resettled refugees (incl. Afghan resettlement scheme) - accessed 19 March 2025
+# https://assets.publishing.service.gov.uk/media/67bc506cb3a80ad63e782c90/asylum-applications-datasets-dec-2024.xlsx
+# via this main page: https://www.gov.uk/government/statistical-data-sets/immigration-system-statistics-data-tables#asylum-and-resettlement 
 
+url <- "https://assets.publishing.service.gov.uk/media/67bc506cb3a80ad63e782c90/asylum-applications-datasets-dec-2024.xlsx"
+download.file(url, destfile = "temp.xlsx", mode = "wb")
+
+# asylum applications
+sheet_name <- "Data - Asy_D01" # asylum applications
+asylum_applications_data <- read_excel("temp.xlsx", sheet = sheet_name, skip = 1) 
+asylum_applications_data <- na.omit(asylum_applications_data)
+
+asylum_applications_yeartotals <- asylum_applications_data |>
+  group_by(Year) |>
+  summarise(total = sum(Applications), .groups = "drop") |>
+  mutate(group = "Asylum applications") |>
+  filter(Year >= 2012) |>
+  rename(year = Year)
+
+# resettled refugees (excluding Hong Kong and Ukraine schemes)
+sheet_name <- "Data - Asy_D02"
+resettled_refugee_noHKorUkr_data <- read_excel("temp.xlsx", sheet = sheet_name, skip = 1) 
+resettled_refugee_noHKorUkr_data <- na.omit(resettled_refugee_noHKorUkr_data)
+
+resettled_refugee_noKHorUKr_yeartotals <- resettled_refugee_noHKorUkr_data |>
+  filter(`Case type` != "Asylum Case") |>
+  group_by(Year) |>
+  summarise(total = sum(Decisions), .groups = "drop") |>
+  mutate(group = "Resettled refugees (excluding Hong Kong and Ukraine schemes") |>
+  filter(Year >= 2012) |>
+  rename(year = Year)
+
+# Ukraine schemes and BNO (Hong Kong) visas - accessed 19 March 2025
+# From: https://assets.publishing.service.gov.uk/media/67bc514298ea2db44faddd4f/asylum-summary-dec-2024-tables.ods 
+
+url <- "https://assets.publishing.service.gov.uk/media/67bc514298ea2db44faddd4f/asylum-summary-dec-2024-tables.ods"
+download.file(url, destfile = "temp.xlsx", mode = "wb")
+sheet_name <- "Asy_11" 
+bno_ukraine_data <- read_ods("temp.xlsx", sheet = sheet_name, skip = 1) 
+
+bno_ukraine_data <- bno_ukraine_data[c(6,9),1:(ncol(bno_ukraine_data)-3)]
+
+bno_ukraine_data_yeartotals <- bno_ukraine_data %>%
+  pivot_longer(cols = `2010`:`2024`,             
+               names_to = "year",
+               values_to = "total") %>%
+  rename(group = Year) %>%
+  filter(year >=2012) %>%
+  mutate(group = ifelse(group == "Total BN(O) Hong Kong visa grants [Note 5](subset of Country-specific routes)", "BNO Hong Kong visas", group)) %>%
+  mutate(group = ifelse(group == "Total Ukraine Visa grants [Note 6](subset of Country-specific routes)", "Ukraine visa schemes", group))
+
+# Other visa types - accessed 19 March 2025
+# From https://assets.publishing.service.gov.uk/media/67bc8251d157fd4b79addd86/entry-clearance-visa-outcomes-datasets-dec-2024.xlsx
+# From this webpage: https://www.gov.uk/government/statistical-data-sets/immigration-system-statistics-data-tables#entry-clearance-visas-granted-outside-the-uk
+
+url <- "https://assets.publishing.service.gov.uk/media/67bc8251d157fd4b79addd86/entry-clearance-visa-outcomes-datasets-dec-2024.xlsx"
+download.file(url, destfile = "temp.xlsx", mode = "wb")
+sheet_name <- "Data_Vis_D02" 
+entry_clearance_visa_data <- read_excel("temp.xlsx", sheet = sheet_name, skip = 1) 
+entry_clearance_visa_data <- na.omit(entry_clearance_visa_data)
+
+## Study
+
+study_visas_yeartotals <- entry_clearance_visa_data |>
+  filter(`Visa type group` == "Study") |>
+  group_by(Year) |>
+  summarise(total = sum(Decisions), .groups = "drop") |>
+  mutate(group = "Study visas") |>
+  filter(Year >= 2012) |>
+  rename(year = Year)
+
+## Work visas 
+
+work_visas_yeartotals <- entry_clearance_visa_data |>
+  filter(`Visa type group` == "Work") |>
+  group_by(Year) |>
+  summarise(total = sum(Decisions), .groups = "drop") |>
+  mutate(group = "Work visas") |>
+  filter(Year >= 2012) |>
+  rename(year = Year)
+
+## Family visas
+
+family_visas_yeartotals <- entry_clearance_visa_data |>
+  filter(`Visa type group` == "Family") |>
+  group_by(Year) |>
+  summarise(total = sum(Decisions), .groups = "drop") |>
+  mutate(group = "Family visas") |>
+  filter(Year >= 2012) |>
+  rename(year = Year)
+
+# Combine asylum and refugee related visa types 
+
+all_refugee_asylum_yeartotals <- rbind(asylum_applications_yeartotals, 
+                            resettled_refugee_noKHorUKr_yeartotals,
+                            bno_ukraine_data_yeartotals)
+all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
+  group_by(year) %>%
+  summarise(total = sum(total)) %>%
+  mutate(group = "Asylum seekers and refugees")
+
+# Combine visa types 
+
+all_visa_types_totals <- rbind(study_visas_yeartotals, 
+                               work_visas_yeartotals, 
+                               family_visas_yeartotals, 
+                               all_refugee_asylum_yeartotals)
+
+all_visa_types_totals$year <- as.numeric(all_visa_types_totals$year)
+
+plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, color = group)) +
+  geom_line(na.rm = TRUE) + 
+  geom_point() +  
+  #scale_color_viridis_d() +  
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title = " ",
+    x = "Date",
+    y = "Number of grants"
+  ) +
+  scale_y_continuous(limits = c(0, max(all_visa_types_totals$total) + 10),  
+                     breaks = seq(0, max(all_visa_types_totals$total) + 100000, by = 100000),  
+                     labels = label_comma()) +  
+  theme_bw() + 
+  theme(
+    axis.title.x = element_text(margin = margin(t = 10)),  
+    axis.title.y = element_text(margin = margin(r = 10)),
+    legend.position.inside = c(0.2, 0.8),
+    legend.title = element_blank()
+    
+  )
+
+plot_immigration_data
 
 
