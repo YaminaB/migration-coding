@@ -476,6 +476,9 @@ plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, 
   scale_y_continuous(limits = c(0, max(all_visa_types_totals$total) + 10),  
                      breaks = seq(0, max(all_visa_types_totals$total) + 100000, by = 100000),  
                      labels = label_comma()) +  
+  scale_x_continuous(
+    breaks = seq(from = min(all_visa_types_totals$year), to = max(all_visa_types_totals$year), by = 1)
+  ) +
   theme_bw() + 
   theme(
     axis.title.x = element_text(margin = margin(t = 10)),  
@@ -486,5 +489,8 @@ plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, 
   )
 
 plot_immigration_data
+
+ggsave("output/visa_type_plot.png", plot = plot_immigration_data, width = 8, height = 6, dpi = 300)
+
 
 
