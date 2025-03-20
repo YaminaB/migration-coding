@@ -47,7 +47,7 @@ print(general_migrant_top5_doc, target = "output/general_migrant_top5.docx")
 for_plot <- general_migrant_data |>
   group_by(start_date, end_date) |>
   summarise(usage = sum(usage), .groups = "drop") %>%
-  mutate(code_type = "All migration-related SNOMED-CT codes")
+  mutate(code_type = "All migration-related codes")
 
 all_migration_codes_percentage_increase <- for_plot %>%
   mutate(perc_increase = (usage-first(usage))/first(usage) *100)
@@ -224,11 +224,10 @@ for_plot_ons <- for_plot_ons |>
 
 ## Combine data ----
 
-combined_data <- rbind(for_plot, for_plot_cob, for_plot_interpreter, for_plot_refugee, for_plot_legalstatus, for_plot_ons) 
-combined_data$usage[is.na(combined_data$usage)] <- 0  # or use mean(combined_data$usage, na.rm = TRUE)
+combined_data <- rbind(for_plot, for_plot_cob, for_plot_interpreter, for_plot_refugee, for_plot_legalstatus) 
+combined_data$usage[is.na(combined_data$usage)] <- 0 
 combined_data$code_type <- factor(combined_data$code_type, levels = 
-                                    c("Immigration to the UK (ONS)", 
-                                      "All migration-related codes", 
+                                    c("All migration-related codes", 
                                       "Country of birth codes", 
                                       "Immigration legal status codes", 
                                       "Refugee or asylum-seeker codes", 
@@ -243,45 +242,76 @@ combined_totals_table <- read_docx() %>%
   body_add_flextable(combined_totals_table) 
 print(combined_totals_table, target = "output/combined_totals_table.docx")
 
+# All snomed code usage 
+
+for_plot_allcodes <- snomed_usage |>
+  group_by(start_date, end_date) |>
+  summarise(usage = sum(usage), .groups = "drop") # |>
+ # mutate(code_type = "All SNOMED-CT codes")
+
+combined_data <- left_join(combined_data, for_plot_allcodes, by = "end_date")
+
 ## Plot data ----
 
-plot <- ggplot(combined_data, aes(x = end_date, y = usage, color = code_type)) +
-  geom_line(aes(linewidth = code_type, linetype = code_type)) + 
-  geom_point() +  
-  #scale_color_viridis_d() +  
+# create scale factor for second y axis 
+scale_factor <- max(combined_data$usage.x, na.rm = TRUE) / max(combined_data$usage.y, na.rm = TRUE)
+
+combined_data$scaled_usage <- combined_data$usage.y * scale_factor
+
+bar_plot_data <- combined_data %>%
+  filter(code_type == "All migration-related codes") %>%
+  select(c(end_date, usage.y, scaled_usage))
+
+plot <- ggplot(combined_data, aes(x = end_date)) +
+  # All SNOMED-CT code usage bar chart (right y-xis)
+  geom_col(data = bar_plot_data, aes(y = scaled_usage), position = "identity", fill = "lightgrey") + 
+  # Migration-related SNOMED-CT code usage line graphs (left y-axis)
+  geom_line(aes(y = usage.x, color = code_type, linewidth = code_type, linetype = code_type)) +  
+  geom_point(aes(y = usage.x, color = code_type)) +  
   scale_color_brewer(palette = "Dark2") +
-  scale_linewidth_manual(values = c("Immigration to the UK (ONS)" = 1.0, 
-                                 "All migration-related codes" = 0.5, 
-                                 "Country of birth codes" = 0.5, 
-                                 "Immigration legal status codes" = 0.5, 
-                                 "Refugee or asylum-seeker codes" = 0.5, 
-                                 "Interpreter-related codes" = 0.5))+
-  scale_linetype_manual(values = c("Immigration to the UK (ONS)" = "dashed", 
-                                   "All migration-related codes" = "solid", 
+  scale_linewidth_manual(values = c("All migration-related codes" = 0.5, 
+                                    "Country of birth codes" = 0.5, 
+                                    "Immigration legal status codes" = 0.5, 
+                                    "Refugee or asylum-seeker codes" = 0.5, 
+                                    "Interpreter-related codes" = 0.5, 
+                                    "usage (scaled)" = 1.2)) +
+  scale_linetype_manual(values = c("All migration-related codes" = "solid", 
                                    "Country of birth codes" = "solid", 
                                    "Immigration legal status codes" = "solid", 
                                    "Refugee or asylum-seeker codes" = "solid", 
-                                   "Interpreter-related codes" = "solid")) +
+                                   "Interpreter-related codes" = "solid", 
+                                   "usage (scaled)" = "solid")) +  
+  
   labs(
     title = " ",
     x = "Date",
-    y = "Usage/population size"
+    y = "Usage"
   ) +
   scale_x_date(
     breaks = seq(from = min(combined_data$end_date), to = max(combined_data$end_date), by = "1 year"),  
     labels = date_format("%Y") 
   ) +
-  scale_y_continuous(limits = c(0, max(combined_data$usage) + 10),  
-                     breaks = seq(0, max(combined_data$usage) + 500000, by = 500000),  
-                     labels = label_comma()) +  
+  # Left y-axis scale (for usage.x)
+  scale_y_continuous(
+    name = "Migration-related SNOMED-CT code usage",
+    limits = c(0, max(combined_data$usage.x, na.rm = TRUE) + 10),
+    breaks = seq(0, max(combined_data$usage.x, na.rm = TRUE) + 500000, by = 500000),
+    labels = scales::comma_format(),
+    # Right y-axis scale (scaled usage.y)
+    sec.axis = sec_axis(~ . / scale_factor, name = "All SNOMED-CT code usage",
+                        labels = scales::comma_format(), 
+                        #breaks = seq(0, max(combined_data$scaled_usage, na.rm = TRUE), by = 10000)  # Add more breaks for the secondary axis
+    )
+  ) +
+  
   theme_bw() + 
   theme(
     axis.title.x = element_text(margin = margin(t = 10)),  
     axis.title.y = element_text(margin = margin(r = 10)),
-    legend.position.inside = c(0.2, 0.8),
-    legend.title = element_blank()
-    
-  )
+    axis.title.y.right = element_text(margin = margin(l = 15)), 
+    legend.position = "bottom",
+    legend.title = element_blank()) +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE))  
 
 plot
 
@@ -351,9 +381,9 @@ ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, w
 
 
 #comparison <- data.frame(start_date = for_plot_allcodes$start_date,
-                         end_date = for_plot_allcodes$end_date,
-                         all_snomed = for_plot_allcodes$usage,
-                         migration_snomed = for_plot$usage)
+                         # end_date = for_plot_allcodes$end_date,
+                         # all_snomed = for_plot_allcodes$usage,
+                         # migration_snomed = for_plot$usage)
 # 
 # comparison <- comparison |>
 #   mutate(percent = round((migration_snomed/all_snomed * 100),4))
@@ -424,7 +454,9 @@ download.file(url, destfile = "temp.xlsx", mode = "wb")
 sheet_name <- "Asy_11" 
 bno_ukraine_data <- read_ods("temp.xlsx", sheet = sheet_name, skip = 1) 
 
-bno_ukraine_data <- bno_ukraine_data[c(6,9),1:(ncol(bno_ukraine_data)-3)]
+bno_ukraine_data <- bno_ukraine_data[c(7,10),1:(ncol(bno_ukraine_data)-3)]
+bno_ukraine_data$Year <- as.factor(bno_ukraine_data$Year)
+levels(bno_ukraine_data$Year)
 
 bno_ukraine_data_yeartotals <- bno_ukraine_data %>%
   pivot_longer(cols = `2010`:`2024`,             
@@ -432,8 +464,8 @@ bno_ukraine_data_yeartotals <- bno_ukraine_data %>%
                values_to = "total") %>%
   rename(group = Year) %>%
   filter(year >=2012) %>%
-  mutate(group = ifelse(group == "Total BN(O) Hong Kong visa grants [Note 5](subset of Country-specific routes)", "BNO Hong Kong visas", group)) %>%
-  mutate(group = ifelse(group == "Total Ukraine Visa grants [Note 6](subset of Country-specific routes)", "Ukraine visa schemes", group))
+  mutate(group = ifelse(group == "BN(O) Route visa grants(subset of Total BN(O) Hong Kong visa grants)", "BNO Hong Kong visas", group)) %>%
+  mutate(group = ifelse(group == "Ukraine Visa Schemes grants(subset of Total Ukraine Visa grants)", "Ukraine visa schemes", group))
 
 # Other visa types - accessed 19 March 2025
 # From https://assets.publishing.service.gov.uk/media/67bc8251d157fd4b79addd86/entry-clearance-visa-outcomes-datasets-dec-2024.xlsx
