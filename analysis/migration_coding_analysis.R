@@ -47,7 +47,10 @@ print(general_migrant_top5_doc, target = "output/general_migrant_top5.docx")
 for_plot <- general_migrant_data |>
   group_by(start_date, end_date) |>
   summarise(usage = sum(usage), .groups = "drop") %>%
-  mutate(code_type = "All migration-related codes")
+  mutate(code_type = "All migration-related SNOMED-CT codes")
+
+all_migration_codes_percentage_increase <- for_plot %>%
+  mutate(perc_increase = (usage-first(usage))/first(usage) *100)
 
 ## Country of birth ----
 
@@ -291,6 +294,10 @@ for_plot_allcodes <- snomed_usage |>
   group_by(start_date, end_date) |>
   summarise(usage = sum(usage), .groups = "drop") 
 
+all_snomed_percentage_increase <- for_plot_allcodes %>%
+  mutate(perc_increase = (usage-first(usage))/first(usage) *100) %>%
+  mutate(code_type = "All SNOMED-CT codes")
+
 plot_allcodes <- ggplot(for_plot_allcodes, aes(x = end_date, y = usage)) +
   geom_line(color = "black") + 
   geom_point(color = "black") +  
@@ -319,39 +326,63 @@ ggsave("output/allsnomed_code_usage.png", plot = plot_allcodes, width = 8, heigh
 
 # Comparison with overall SNOMED-CT code usage ----
 
-comparison <- data.frame(start_date = for_plot_allcodes$start_date,
+percentage_increase_combined <- rbind(all_snomed_percentage_increase, all_migration_codes_percentage_increase)
+
+percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_date, y = perc_increase, fill = code_type)) +
+  geom_bar(stat = "identity", position = "dodge") +  # "dodge" places bars side by side
+  labs(
+    x = "Year",
+    y = "Percentage increase"
+  ) +
+  scale_x_date(
+    breaks = seq(from = min(for_plot_allcodes$end_date), to = max(for_plot_allcodes$end_date), by = "1 year"),  
+    labels = date_format("%Y") 
+  ) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 10)),  
+        axis.title.y = element_text(margin = margin(r = 10)),) 
+
+percentage_increase_plot
+ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
+
+
+
+#comparison <- data.frame(start_date = for_plot_allcodes$start_date,
                          end_date = for_plot_allcodes$end_date,
                          all_snomed = for_plot_allcodes$usage,
                          migration_snomed = for_plot$usage)
-
-comparison <- comparison |>
-  mutate(percent = round((migration_snomed/all_snomed * 100),4))
-
-plot_comparison <- ggplot(comparison, aes(x = end_date, y = percent)) +
-  geom_line(color = "black") + 
-  geom_point(color = "black") +  
-  scale_color_viridis_d() +  
-  labs(
-    title = " ",
-    x = "Date",
-    y = "Percentage of all SNOMED-CT coding"
-  ) +
-  scale_x_date(
-    breaks = seq(from = min(comparison$end_date), to = max(comparison$end_date), by = "1 year"),  
-    labels = date_format("%Y") 
-  ) +
-  scale_y_continuous(#limits = c(0, max(comparison$percent) + 2),  
-                     labels = label_comma()) +  
-  theme_bw() + 
-  theme(
-    axis.title.x = element_text(margin = margin(t = 10)),  
-    axis.title.y = element_text(margin = margin(r = 10)),
-    legend.title = element_blank()
-  )
-
-plot_comparison
-
-ggsave("output/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
+# 
+# comparison <- comparison |>
+#   mutate(percent = round((migration_snomed/all_snomed * 100),4))
+# 
+# plot_comparison <- ggplot(comparison, aes(x = end_date, y = percent)) +
+#   geom_line(color = "black") + 
+#   geom_point(color = "black") +  
+#   scale_color_viridis_d() +  
+#   labs(
+#     title = " ",
+#     x = "Date",
+#     y = "Percentage of all SNOMED-CT coding"
+#   ) +
+#   scale_x_date(
+#     breaks = seq(from = min(comparison$end_date), to = max(comparison$end_date), by = "1 year"),  
+#     labels = date_format("%Y") 
+#   ) +
+#   scale_y_continuous(#limits = c(0, max(comparison$percent) + 2),  
+#                      labels = label_comma()) +  
+#   theme_bw() + 
+#   theme(
+#     axis.title.x = element_text(margin = margin(t = 10)),  
+#     axis.title.y = element_text(margin = margin(r = 10)),
+#     legend.title = element_blank()
+#   )
+# 
+# plot_comparison
+# 
+# ggsave("output/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
 
 # Asylum applications, initial positive decisions, and resettled refugees (incl. Afghan resettlement scheme) - accessed 19 March 2025
 # https://assets.publishing.service.gov.uk/media/67bc506cb3a80ad63e782c90/asylum-applications-datasets-dec-2024.xlsx
@@ -420,7 +451,7 @@ study_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Study") |>
   group_by(Year) |>
   summarise(total = sum(Decisions), .groups = "drop") |>
-  mutate(group = "Study visas") |>
+  mutate(group = "Study visa status") |>
   filter(Year >= 2012) |>
   rename(year = Year)
 
@@ -430,7 +461,7 @@ work_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Work") |>
   group_by(Year) |>
   summarise(total = sum(Decisions), .groups = "drop") |>
-  mutate(group = "Work visas") |>
+  mutate(group = "Work visa status") |>
   filter(Year >= 2012) |>
   rename(year = Year)
 
@@ -440,7 +471,7 @@ family_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Family") |>
   group_by(Year) |>
   summarise(total = sum(Decisions), .groups = "drop") |>
-  mutate(group = "Family visas") |>
+  mutate(group = "Family visa status") |>
   filter(Year >= 2012) |>
   rename(year = Year)
 
@@ -452,7 +483,7 @@ all_refugee_asylum_yeartotals <- rbind(asylum_applications_yeartotals,
 all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
   group_by(year) %>%
   summarise(total = sum(total)) %>%
-  mutate(group = "Asylum seekers and refugees")
+  mutate(group = "Asylum and refugee status")
 
 # Combine visa types 
 
@@ -465,13 +496,12 @@ all_visa_types_totals$year <- as.numeric(all_visa_types_totals$year)
 
 plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, color = group)) +
   geom_line(na.rm = TRUE) + 
-  geom_point() +  
-  #scale_color_viridis_d() +  
+  geom_point() +   
   scale_color_brewer(palette = "Dark2") +
   labs(
     title = " ",
     x = "Date",
-    y = "Number of grants"
+    y = "Number of individuals"
   ) +
   scale_y_continuous(limits = c(0, max(all_visa_types_totals$total) + 10),  
                      breaks = seq(0, max(all_visa_types_totals$total) + 100000, by = 100000),  
