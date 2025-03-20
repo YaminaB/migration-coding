@@ -204,24 +204,6 @@ for_plot_legalstatus <- legal_status_data |>
   summarise(usage = sum(usage), .groups = "drop") %>%
   mutate(code_type = "Immigration legal status codes")
 
-# Add immigration data from lamis: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/migrationwithintheuk/datasets/localareamigrationindicatorsunitedkingdom
-# for international long-term migration: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
-
-ons <- read_csv("long_term_international_migration_UK_ONS.csv", col_types = cols(population = col_double()))
-
-for_plot_ons <- for_plot %>%
-  select(start_date, end_date) %>%
-  mutate(code_type = "Immigration to the UK (ONS)")
-
-for_plot_ons$year <- as.numeric(format(for_plot_ons$end_date, "%Y"))
-
-for_plot_ons <- for_plot_ons |>
-  left_join(ons, by = "year") |>
-  select(-c(year, year_full)) |>
-  rename("usage" = "population")
-
-#for_plot_ons$usage <- as.numeric(for_plot_ons$usage)
-
 ## Combine data ----
 
 combined_data <- rbind(for_plot, for_plot_cob, for_plot_interpreter, for_plot_refugee, for_plot_legalstatus) 
@@ -328,32 +310,6 @@ all_snomed_percentage_increase <- for_plot_allcodes %>%
   mutate(perc_increase = (usage-first(usage))/first(usage) *100) %>%
   mutate(code_type = "All SNOMED-CT codes")
 
-plot_allcodes <- ggplot(for_plot_allcodes, aes(x = end_date, y = usage)) +
-  geom_line(color = "black") + 
-  geom_point(color = "black") +  
-  scale_color_viridis_d() +  
-  labs(
-    title = " ",
-    x = "Date",
-    y = "Usage"
-  ) +
-  scale_x_date(
-    breaks = seq(from = min(for_plot_allcodes$end_date), to = max(for_plot_allcodes$end_date), by = "1 year"),  
-    labels = date_format("%Y") 
-  ) +
-  scale_y_continuous(limits = c(0, max(for_plot_allcodes$usage) + 10),  
-                     labels = label_comma()) +  
-  theme_bw() + 
-  theme(
-    axis.title.x = element_text(margin = margin(t = 10)),  
-    axis.title.y = element_text(margin = margin(r = 10)),
-    legend.title = element_blank()
-  )
-
-plot_allcodes
-
-ggsave("output/allsnomed_code_usage.png", plot = plot_allcodes, width = 8, height = 6, dpi = 300)
-
 # Comparison with overall SNOMED-CT code usage ----
 
 percentage_increase_combined <- rbind(all_snomed_percentage_increase, all_migration_codes_percentage_increase)
@@ -413,6 +369,16 @@ ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, w
 # plot_comparison
 # 
 # ggsave("output/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
+
+# Add immigration data from lamis: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/migrationwithintheuk/datasets/localareamigrationindicatorsunitedkingdom
+# for international long-term migration: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
+
+ons <- read_csv("long_term_international_migration_UK_ONS.csv", col_types = cols(population = col_double()))
+
+for_plot_ons <- ons %>%
+  mutate(group = "Long-term immigration to the UK") %>%
+  select(-year_full) %>%
+  rename(total = population)
 
 # Asylum applications, initial positive decisions, and resettled refugees (incl. Afghan resettlement scheme) - accessed 19 March 2025
 # https://assets.publishing.service.gov.uk/media/67bc506cb3a80ad63e782c90/asylum-applications-datasets-dec-2024.xlsx
@@ -519,12 +485,20 @@ all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
 
 # Combine visa types 
 
-all_visa_types_totals <- rbind(study_visas_yeartotals, 
+all_visa_types_totals <- rbind(for_plot_ons, study_visas_yeartotals, 
                                work_visas_yeartotals, 
                                family_visas_yeartotals, 
                                all_refugee_asylum_yeartotals)
 
 all_visa_types_totals$year <- as.numeric(all_visa_types_totals$year)
+
+
+all_visa_types_totals$group <- factor(all_visa_types_totals$group, levels = 
+                                    c("Long-term immigration to the UK", 
+                                      "Study visa status", 
+                                      "Work visa status", 
+                                      "Family visa status", 
+                                      "Asylum and refugee status"))
 
 plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, color = group)) +
   geom_line(na.rm = TRUE) + 
@@ -546,9 +520,7 @@ plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, 
     axis.title.x = element_text(margin = margin(t = 10)),  
     axis.title.y = element_text(margin = margin(r = 10)),
     legend.position.inside = c(0.2, 0.8),
-    legend.title = element_blank()
-    
-  )
+    legend.title = element_blank()) 
 
 plot_immigration_data
 
