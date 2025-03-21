@@ -1,6 +1,6 @@
 #install.packages("pacman")
 library(pacman)
-p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, officer, readr, RColorBrewer, readxl, readODS, tidyr)
+p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, officer, readr, RColorBrewer, readxl, readODS, tidyr, stringr)
 #remotes::install_github("bennettoxford/opencodes")
 library(opencodes)
 
@@ -12,7 +12,7 @@ snomed_usage <- opencodes::snomed_usage
 
 # general migrant ######
 
-general_migrant_codelist <- data.frame(get_codelist("user/YaminaB/migration-status/5fb4000d"))
+general_migrant_codelist <- data.frame(get_codelist("user/YaminaB/migration-status/1f473d49"))
 
 # Filter codelist to codes included in SNOMED-CT data (i.e. usage >0)
 general_migrant_in <- general_migrant_codelist |>
@@ -52,9 +52,9 @@ for_plot <- general_migrant_data |>
 all_migration_codes_percentage_increase <- for_plot %>%
   mutate(perc_increase = (usage-first(usage))/first(usage) *100)
 
-## Country of birth ----
+# Country of birth ----
 
-cob_codelist <- data.frame(get_codelist("user/YaminaB/born-outside-the-uk/226b7482"))
+cob_codelist <- data.frame(get_codelist("user/YaminaB/born-outside-the-uk/0637ca14"))
 
 cob_in <- cob_codelist |>
   filter(code %in% snomed_usage$snomed_code)
@@ -83,7 +83,20 @@ cob_top5 <- flextable(cob_top5) |>
   set_table_properties(layout = "autofit")
 cob_top5_doc <- read_docx() %>% 
   body_add_flextable(cob_top5) 
-print(cob_top5_doc, target = "output/Tables_figures/cob_top5.docx")
+print(cob_top5_doc, target = "output/cob_top5.docx")
+
+cob_all <- cob_data |>
+  group_by(snomed_code, description) |>
+  summarise(usage = sum(usage), .groups = "drop") |>
+  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
+  arrange(desc(usage))
+
+cob_all <- flextable(cob_all) |>
+  autofit() |>
+  set_table_properties(layout = "autofit")
+cob_all_doc <- read_docx() %>% 
+  body_add_flextable(cob_all) 
+print(cob_all_doc, target = "output/cob_all.docx")
 
 for_plot_cob <- cob_data |>
   group_by(start_date, end_date) |>
@@ -92,7 +105,7 @@ for_plot_cob <- cob_data |>
 
 # Interpreter needed -----
 
-interpreter_codelist <- data.frame(get_codelist("user/YaminaB/interpreter-required/373ac0a3"))
+interpreter_codelist <- data.frame(get_codelist("user/YaminaB/interpreter-required/3856b07e"))
 
 interpreter_in <- interpreter_codelist |>
   filter(code %in% snomed_usage$snomed_code)
@@ -130,7 +143,7 @@ for_plot_interpreter <- interpreter_data |>
 
 # Refugees and asylum seekers -----
 
-refugee_codelist <- data.frame(get_codelist("user/YaminaB/asylum-seeker-or-refugee/6266c003"))
+refugee_codelist <- data.frame(get_codelist("user/YaminaB/asylum-seeker-or-refugee/35a3f088"))
 
 refugee_in <- refugee_codelist |>
   filter(code %in% snomed_usage$snomed_code)
@@ -148,18 +161,17 @@ refugee_total <- refugee_data |>
   summarise(usage = sum(usage), .groups = "drop") |>
   mutate(code_type = "Refugee and asylum-related codes")
 
-refugee_top5 <- refugee_data |>
+refugee_all <- refugee_data |>
   group_by(snomed_code, description) |>
   summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
-  slice_max(usage, n = 5)
+  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) 
 
-refugee_top5 <- flextable(refugee_top5) |>
+refugee_all <- flextable(refugee_all) |>
   autofit() |>
   set_table_properties(layout = "autofit")
-refugee_top5_doc <- read_docx() %>% 
-  body_add_flextable(refugee_top5) 
-print(refugee_top5_doc, target = "output/refugee_top5.docx")
+refugee_all_doc <- read_docx() %>% 
+  body_add_flextable(refugee_all) 
+print(refugee_all_doc, target = "output/refugee_all.docx")
 
 for_plot_refugee <- refugee_data |>
   group_by(start_date, end_date) |>
@@ -168,7 +180,7 @@ for_plot_refugee <- refugee_data |>
 
 # Immigration legal status -----
 
-legal_status_codelist <- data.frame(get_codelist("user/YaminaB/uk-visa/2d9519a3"))
+legal_status_codelist <- data.frame(get_codelist("user/YaminaB/uk-visa/4eb363bd"))
 
 legal_status_in <- legal_status_codelist |>
   filter(code %in% snomed_usage$snomed_code)
@@ -178,6 +190,10 @@ legal_status_codelist_table <- flextable(legal_status_in) |>
 legal_status_codelist_table <- read_docx() %>% 
   body_add_flextable(legal_status_codelist_table) 
 print(legal_status_codelist_table, target = "output/legal_status_codelist_table.docx")
+
+# double check legal_status_in and refugee_in 
+codes_not_in_refugee_codelist <- legal_status_in %>%
+  anti_join(refugee_in, by = "term")
 
 legal_status_data <- snomed_usage |> 
   filter(snomed_code %in% legal_status_codelist$code) 
@@ -198,6 +214,18 @@ legal_status_top5 <- flextable(legal_status_top5) |>
 legal_status_top5_doc <- read_docx() %>% 
   body_add_flextable(legal_status_top5) 
 print(legal_status_top5_doc, target = "output/legal_status_top5.docx")
+
+legal_status_all <- legal_status_data |>
+  group_by(snomed_code, description) |>
+  summarise(usage = sum(usage), .groups = "drop") |>
+  mutate(percent_usage = round(100*(usage/ sum(usage)),2))
+
+legal_status_all <- flextable(legal_status_all) |>
+  autofit() |>
+  set_table_properties(layout = "autofit")
+legal_status_all_doc <- read_docx() %>% 
+  body_add_flextable(legal_status_all) 
+print(legal_status_all_doc, target = "output/legal_status_all.docx")
 
 for_plot_legalstatus <- legal_status_data |>
   group_by(start_date, end_date) |>
@@ -370,6 +398,8 @@ ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, w
 # 
 # ggsave("output/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
 
+# Immigration data -----
+
 # Add immigration data from lamis: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/migrationwithintheuk/datasets/localareamigrationindicatorsunitedkingdom
 # for international long-term migration: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
 
@@ -526,5 +556,95 @@ plot_immigration_data
 
 ggsave("output/visa_type_plot.png", plot = plot_immigration_data, width = 8, height = 6, dpi = 300)
 
+# Census 2021 comparison ----
+
+# get snomed-ct data for 2020/21 and earlier (Census was on 21st March 2021)
+
+snomed_usage_20_21_and_earlier <- snomed_usage %>%
+  filter(start_date <= "2020-08-01")
+
+cob_data_snomed <- snomed_usage_20_21_and_earlier |> 
+  filter(snomed_code %in% cob_codelist$code) 
+
+cob_data_snomed_ranked <- cob_data_snomed |>
+  group_by(snomed_code, description) |>
+  summarise(usage = sum(usage), .groups = "drop") |>
+  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
+  arrange(desc(usage)) %>%
+  mutate(country = str_remove_all(description, "Born in |\\(finding\\)"),
+         country = str_trim(country))
+
+# Census 2021 CoB data summary - accessed 21 March 2025
+# from: https://www.ons.gov.uk/visualisations/dvc2201/Figure_2/datadownload.xlsx
+
+url <- "https://www.ons.gov.uk/visualisations/dvc2201/Figure_2/datadownload.xlsx"
+download.file(url, destfile = "temp.xlsx", mode = "wb")
+census_cob_data <- read_excel("temp.xlsx", skip = 4) 
+
+census_cob_data <- census_cob_data %>%
+  select(-`Rank in 2021`)
+
+# join
+
+census_and_snomed_cob <- census_cob_data %>%
+  left_join(cob_data_snomed_ranked, by = c("Country of birth" = "country")) %>%
+  select(c(`Country of birth`, `2021`, percent_usage)) %>%
+  rename("SNOMED-CT codes" = "percent_usage") %>%
+  mutate(`Census 2021` = ((`2021`)/10000000)*100) %>% # 10 million individuals with a non-UK cob according to the 2021 census
+  select(-`2021`) %>%
+  pivot_longer(cols = c(`SNOMED-CT codes`, `Census 2021`),
+               names_to = "data_source",
+               values_to = "percentage")
+
+census_and_snomed_cob$`Country of birth` <- factor(census_and_snomed_cob$`Country of birth`, levels =
+                                                     c("India",
+                                                       "Poland",
+                                                       "Pakistan",
+                                                       "Romania",
+                                                       "Ireland",
+                                                       "Italy",
+                                                       "Bangladesh",
+                                                       "Nigeria",
+                                                       "Germany",
+                                                       "South Africa"))
+  
+  
+# plot
+
+plot_census_snomed_cob <- ggplot(census_and_snomed_cob, aes(x = `Country of birth`, y = percentage, fill = data_source)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) + 
+  scale_fill_brewer(palette = "Dark2") +
+  labs(
+    title = " ",
+    x = "Country of birth",
+    y = "Percentage"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 10)))
+
+plot_census_snomed_cob
+
+ggsave("output/census_snomed_cob.png", plot = plot_census_snomed_cob, width = 8, height = 6, dpi = 300)
 
 
+## Checks ----
+
+# Confirm that all sub-groups of migration codes are also in the main migration codelist 
+
+
+check_anti_join_terms <- function(df1, df2, by) {
+  result <- anti_join(df1, df2, by = by)
+  if (nrow(result) == 0) {
+    return(TRUE)  # All rows in df1 are in df2
+  } else {
+    return(result)  # Return the unmatched rows
+  }
+}
+
+check_anti_join_terms(cob_in, general_migrant_in, "term")
+check_anti_join_terms(refugee_in, general_migrant_in, "term")
+check_anti_join_terms(legal_status_in, general_migrant_in, "term")
+check_anti_join_terms(interpreter_in, general_migrant_in, "term")
