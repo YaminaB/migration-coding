@@ -574,29 +574,49 @@ cob_data_snomed_ranked <- cob_data_snomed |>
   mutate(country = str_remove_all(description, "Born in |\\(finding\\)"),
          country = str_trim(country))
 
-# Census 2021 CoB data summary - accessed 21 March 2025
-# from: https://www.ons.gov.uk/visualisations/dvc2201/Figure_2/datadownload.xlsx
+# Census 2021 CoB data summary - accessed 04 April 2025
+# from: https://www.ons.gov.uk/datasets/create/filter-outputs/ac2b3af3-76a6-46e0-94e1-de929e9fc920#get-data
 
-url <- "https://www.ons.gov.uk/visualisations/dvc2201/Figure_2/datadownload.xlsx"
-download.file(url, destfile = "temp.xlsx", mode = "wb")
-census_cob_data <- read_excel("temp.xlsx", skip = 4) 
+census_cob_data <- read_excel("custom-filtered-2025-04-04T12_09_23Z.xlsx") 
 
 census_cob_data <- census_cob_data %>%
-  select(-`Rank in 2021`)
+  filter(Countries == "England")
 
+census_cob_data$`Country of birth (extended) (190 categories)` <- as.factor(census_cob_data$`Country of birth (extended) (190 categories)`)
+
+uk_cobs <- c("Europe: United Kingdom: England", 
+  "Europe: United Kingdom: Northern Ireland",
+  "Europe: United Kingdom: Scotland",
+  "Europe: United Kingdom: Wales",
+  "Europe: United Kingdom: Great Britain not otherwise specified",
+  "Europe: United Kingdom: United Kingdom not otherwise specified")
+
+census_cob_data <- census_cob_data %>%
+  filter(!(`Country of birth (extended) (190 categories)`%in% uk_cobs)) %>%
+  arrange(desc(Observation)) 
+
+total_nonUKcob_census <- census_cob_data %>%
+  summarise(total = sum(Observation))
+
+census_cob_data <- census_cob_data %>%
+  mutate(`Census 2021` = (Observation/total_nonUKcob_census$total)*100) %>%
+  slice(1:10) %>%
+  rename("country" = "Country of birth (extended) (190 categories)") %>%
+  select(c(country, `Census 2021`, Observation)) %>%
+  mutate(country = str_split_fixed(country, ":", 3)[, 3] %>%
+           str_trim())
+  
 # join
 
 census_and_snomed_cob <- census_cob_data %>%
-  left_join(cob_data_snomed_ranked, by = c("Country of birth" = "country")) %>%
-  select(c(`Country of birth`, `2021`, percent_usage)) %>%
+  left_join(cob_data_snomed_ranked, by = c("country")) %>%
+  select(c(country, `Census 2021`, percent_usage)) %>%
   rename("SNOMED-CT codes" = "percent_usage") %>%
-  mutate(`Census 2021` = ((`2021`)/10000000)*100) %>% # 10 million individuals with a non-UK cob according to the 2021 census
-  select(-`2021`) %>%
   pivot_longer(cols = c(`SNOMED-CT codes`, `Census 2021`),
                names_to = "data_source",
                values_to = "percentage")
 
-census_and_snomed_cob$`Country of birth` <- factor(census_and_snomed_cob$`Country of birth`, levels =
+census_and_snomed_cob$country <- factor(census_and_snomed_cob$country, levels =
                                                      c("India",
                                                        "Poland",
                                                        "Pakistan",
@@ -611,7 +631,7 @@ census_and_snomed_cob$`Country of birth` <- factor(census_and_snomed_cob$`Countr
   
 # plot
 
-plot_census_snomed_cob <- ggplot(census_and_snomed_cob, aes(x = `Country of birth`, y = percentage, fill = data_source)) +
+plot_census_snomed_cob <- ggplot(census_and_snomed_cob, aes(x = country, y = percentage, fill = data_source)) +
   geom_col(position = position_dodge(width = 0.8), width = 0.7) + 
   scale_fill_brewer(palette = "Dark2") +
   labs(
