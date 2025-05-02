@@ -10,242 +10,145 @@ snomed_usage <- opencodes::snomed_usage
 #codelist_out <- codelist |> 
 #  filter(!(code %in% snomed_usage$snomed_code))
 
+# function to generate outputs
+
+generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage) {
+  
+  # Load codelist
+  codelist <- data.frame(get_codelist(codelist_path))
+  
+  # Filter to codes in use
+  codelist_in_use <- codelist %>%
+    filter(code %in% snomed_usage$snomed_code)
+  
+  # Export full codelist table
+  ft_codelist <- flextable(codelist_in_use) %>%
+    autofit() %>%
+    set_table_properties(layout = "autofit") 
+  doc <- read_docx() %>%
+    body_add_flextable(ft_codelist) %>%
+    print(target = paste0("output/", output_name, "_codelist_table.docx"))
+  
+  # Filter usage data
+  codelist_usage <- snomed_usage %>%
+    filter(snomed_code %in% codelist$code)
+  
+  # Total usage summary
+  total <- codelist_usage %>%
+    summarise(usage = sum(usage), .groups = "drop") %>%
+    mutate(code_type = paste(output_name, "codes"))
+  
+  # Top 5 codes
+  top5 <- codelist_usage %>%
+    group_by(snomed_code, description) %>%
+    summarise(usage = sum(usage), .groups = "drop") %>%
+    mutate(percent_usage = round(100 * usage / sum(usage), 0)) %>%
+    slice_max(usage, n = 5)
+  
+  ft_top5 <- flextable(top5) %>%
+    autofit() %>%
+    set_table_properties(layout = "autofit")
+  doc_2 <- read_docx() %>%
+    body_add_flextable(ft_top5) %>%
+    print(target = paste0("output/", output_name, "_top5.docx"))
+  
+  # For plotting
+  usage_trend <- codelist_usage %>%
+    group_by(start_date, end_date) %>%
+    summarise(usage = sum(usage), .groups = "drop") %>%
+    mutate(code_type = paste(output_name, "codes"))
+  
+  # Calculate % increase
+  usage_trend <- usage_trend %>%
+    mutate(perc_increase = (usage - first(usage)) / first(usage) * 100)
+  
+  return(list(
+    codelist = codelist_in_use,
+    total = total,
+    top5 = top5,
+    usage_trend = usage_trend
+  ))
+}
+
 # general migrant ######
 
-general_migrant_codelist <- data.frame(get_codelist("user/YaminaB/migration-status/1f473d49"))
-
-# Filter codelist to codes included in SNOMED-CT data (i.e. usage >0)
-general_migrant_in <- general_migrant_codelist |>
-  filter(code %in% snomed_usage$snomed_code)
-general_migrant_codelist_table <- flextable(general_migrant_in) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-general_migrant_codelist_table <- read_docx() %>% 
-  body_add_flextable(general_migrant_codelist_table) 
-print(general_migrant_codelist_table, target = "output/general_migrant_codelist_table.docx")
-
-general_migrant_data <- snomed_usage |> 
-  filter(snomed_code %in% general_migrant_codelist$code) 
-
-general_migrant_total <- general_migrant_data |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(code_type = "All migration-related codes")
-
-general_migrant_top5 <- general_migrant_data |>
-  group_by(snomed_code, description) |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
-  slice_max(usage, n = 5)
-
-general_migrant_top5 <- flextable(general_migrant_top5) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-general_migrant_top5_doc <- read_docx() %>% 
-  body_add_flextable(general_migrant_top5) 
-print(general_migrant_top5_doc, target = "output/general_migrant_top5.docx")
-
-for_plot <- general_migrant_data |>
-  group_by(start_date, end_date) |>
-  summarise(usage = sum(usage), .groups = "drop") %>%
-  mutate(code_type = "All migration-related codes")
-
-all_migration_codes_percentage_increase <- for_plot %>%
-  mutate(perc_increase = (usage-first(usage))/first(usage) *100)
+general_migrant_results <- generate_codelist_analysis(
+  codelist_path = "user/YaminaB/migration-status/47586e6d",
+  output_name = "All migration-related",
+  snomed_usage = snomed_usage
+)
 
 # Country of birth ----
 
-cob_codelist <- data.frame(get_codelist("user/YaminaB/born-outside-the-uk/0637ca14"))
-
-cob_in <- cob_codelist |>
-  filter(code %in% snomed_usage$snomed_code)
-cob_codelist_table <- flextable(cob_in) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-cob_codelist_table <- read_docx() %>% 
-  body_add_flextable(cob_codelist_table) 
-print(cob_codelist_table, target = "output/cob_codelist_table.docx")
-
-cob_data <- snomed_usage |> 
-  filter(snomed_code %in% cob_codelist$code) 
-
-cob_total <- cob_data |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(code_type = "Country of birth codes")
-
-cob_top5 <- cob_data |>
-  group_by(snomed_code, description) |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
-  slice_max(usage, n = 5)
-
-cob_top5 <- flextable(cob_top5) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-cob_top5_doc <- read_docx() %>% 
-  body_add_flextable(cob_top5) 
-print(cob_top5_doc, target = "output/cob_top5.docx")
-
-cob_all <- cob_data |>
-  group_by(snomed_code, description) |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
-  arrange(desc(usage))
-
-cob_all <- flextable(cob_all) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-cob_all_doc <- read_docx() %>% 
-  body_add_flextable(cob_all) 
-print(cob_all_doc, target = "output/cob_all.docx")
-
-for_plot_cob <- cob_data |>
-  group_by(start_date, end_date) |>
-  summarise(usage = sum(usage), .groups = "drop") %>%
-  mutate(code_type = "Country of birth codes")
+cob_migrant_results <- generate_codelist_analysis(
+  codelist_path = "user/YaminaB/born-outside-the-uk/0637ca14",
+  output_name = "Country of birth",
+  snomed_usage = snomed_usage
+)
 
 # Interpreter needed -----
 
-interpreter_codelist <- data.frame(get_codelist("user/YaminaB/interpreter-required/3856b07e"))
-
-interpreter_in <- interpreter_codelist |>
-  filter(code %in% snomed_usage$snomed_code)
-interpreter_codelist_table <- flextable(interpreter_in) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-interpreter_codelist_table <- read_docx() %>% 
-  body_add_flextable(interpreter_codelist_table) 
-print(interpreter_codelist_table, target = "output/interpreter_codelist_table.docx")
-
-interpreter_data <- snomed_usage |> 
-  filter(snomed_code %in% interpreter_codelist$code) 
-
-interpreter_total <- interpreter_data |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(code_type = "Interpreter codes")
-
-interpreter_top5 <- interpreter_data |>
-  group_by(snomed_code, description) |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
-  slice_max(usage, n = 5)
-
-interpreter_top5 <- flextable(interpreter_top5) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-interpreter_top5_doc <- read_docx() %>% 
-  body_add_flextable(interpreter_top5) 
-print(interpreter_top5_doc, target = "output/interpreter_top5.docx")
-
-for_plot_interpreter <- interpreter_data |>
-  group_by(start_date, end_date) |>
-  summarise(usage = sum(usage), .groups = "drop") %>%
-  mutate(code_type = "Interpreter-related codes")
+interpreter_migrant_results <- generate_codelist_analysis(
+  codelist_path = "user/YaminaB/interpreter-required/3856b07e",
+  output_name = "Interpreter-related",
+  snomed_usage = snomed_usage
+)
 
 # Refugees and asylum seekers -----
 
-refugee_codelist <- data.frame(get_codelist("user/YaminaB/asylum-seeker-or-refugee/35a3f088"))
-
-refugee_in <- refugee_codelist |>
-  filter(code %in% snomed_usage$snomed_code)
-refugee_codelist_table <- flextable(refugee_in) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-refugee_codelist_table <- read_docx() %>% 
-  body_add_flextable(refugee_codelist_table) 
-print(refugee_codelist_table, target = "output/refugee_codelist_table.docx")
-
-refugee_data <- snomed_usage |> 
-  filter(snomed_code %in% refugee_codelist$code) 
-
-refugee_total <- refugee_data |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(code_type = "Refugee and asylum-related codes")
-
-refugee_all <- refugee_data |>
-  group_by(snomed_code, description) |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) 
-
-refugee_all <- flextable(refugee_all) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-refugee_all_doc <- read_docx() %>% 
-  body_add_flextable(refugee_all) 
-print(refugee_all_doc, target = "output/refugee_all.docx")
-
-for_plot_refugee <- refugee_data |>
-  group_by(start_date, end_date) |>
-  summarise(usage = sum(usage), .groups = "drop") %>%
-  mutate(code_type = "Refugee or asylum-seeker codes")
+refugee_migrant_results <- generate_codelist_analysis(
+  codelist_path = "user/YaminaB/asylum-seeker-or-refugee/35a3f088",
+  output_name = "Refugee or asylum-seeker",
+  snomed_usage = snomed_usage
+)
 
 # Immigration legal status -----
 
-legal_status_codelist <- data.frame(get_codelist("user/YaminaB/uk-visa/4eb363bd"))
+legal_status_migrant_results <- generate_codelist_analysis(
+  codelist_path = "user/YaminaB/uk-visa/4eb363bd",
+  output_name = "Immigration legal status",
+  snomed_usage = snomed_usage
+)
 
-legal_status_in <- legal_status_codelist |>
-  filter(code %in% snomed_usage$snomed_code)
-legal_status_codelist_table <- flextable(legal_status_in) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-legal_status_codelist_table <- read_docx() %>% 
-  body_add_flextable(legal_status_codelist_table) 
-print(legal_status_codelist_table, target = "output/legal_status_codelist_table.docx")
+# Language
 
-# double check legal_status_in and refugee_in 
-codes_not_in_refugee_codelist <- legal_status_in %>%
-  anti_join(refugee_in, by = "term")
+language_migrant_results <- generate_codelist_analysis(
+  codelist_path = "user/YaminaB/english-not-main-language/2e48fb38",
+  output_name = "Language-related",
+  snomed_usage = snomed_usage
+)
 
-legal_status_data <- snomed_usage |> 
-  filter(snomed_code %in% legal_status_codelist$code) 
-
-legal_status_total <- legal_status_data |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(code_type = "Immigration legal status codes")
-
-legal_status_top5 <- legal_status_data |>
-  group_by(snomed_code, description) |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2)) |>
-  slice_max(usage, n = 5)
-
-legal_status_top5 <- flextable(legal_status_top5) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-legal_status_top5_doc <- read_docx() %>% 
-  body_add_flextable(legal_status_top5) 
-print(legal_status_top5_doc, target = "output/legal_status_top5.docx")
-
-legal_status_all <- legal_status_data |>
-  group_by(snomed_code, description) |>
-  summarise(usage = sum(usage), .groups = "drop") |>
-  mutate(percent_usage = round(100*(usage/ sum(usage)),2))
-
-legal_status_all <- flextable(legal_status_all) |>
-  autofit() |>
-  set_table_properties(layout = "autofit")
-legal_status_all_doc <- read_docx() %>% 
-  body_add_flextable(legal_status_all) 
-print(legal_status_all_doc, target = "output/legal_status_all.docx")
-
-for_plot_legalstatus <- legal_status_data |>
-  group_by(start_date, end_date) |>
-  summarise(usage = sum(usage), .groups = "drop") %>%
-  mutate(code_type = "Immigration legal status codes")
 
 ## Combine data ----
 
-combined_data <- rbind(for_plot, for_plot_cob, for_plot_interpreter, for_plot_refugee, for_plot_legalstatus) 
-combined_data$usage[is.na(combined_data$usage)] <- 0 
+combined_data <- bind_rows(
+  general_migrant_results$usage_trend,
+  language_migrant_results$usage_trend,
+  cob_migrant_results$usage_trend,
+  interpreter_migrant_results$usage_trend,
+  refugee_migrant_results$usage_trend,
+  legal_status_migrant_results$usage_trend
+)
+combined_data$usage[is.na(combined_data$usage)] <- 0
+
 combined_data$code_type <- factor(combined_data$code_type, levels = 
                                     c("All migration-related codes", 
+                                      "Language-related codes",
+                                      "Interpreter-related codes",
                                       "Country of birth codes", 
                                       "Immigration legal status codes", 
-                                      "Refugee or asylum-seeker codes", 
-                                      "Interpreter-related codes"))
+                                      "Refugee or asylum-seeker codes"))
 
+combined_data_totals <- bind_rows(
+  general_migrant_results$total,
+  cob_migrant_results$total,
+  language_migrant_results$total,
+  interpreter_migrant_results$total,
+  refugee_migrant_results$total,
+  legal_status_migrant_results$total
+)
 
-combined_totals <- rbind(general_migrant_total, cob_total, interpreter_total, refugee_total, legal_status_total)
-combined_totals_table <- flextable(combined_totals) |>
+combined_totals_table <- flextable(combined_data_totals) |>
   autofit() |>
   set_table_properties(layout = "autofit")
 combined_totals_table <- read_docx() %>% 
@@ -282,15 +185,17 @@ plot <- ggplot(combined_data, aes(x = end_date)) +
   scale_linewidth_manual(values = c("All migration-related codes" = 0.5, 
                                     "Country of birth codes" = 0.5, 
                                     "Immigration legal status codes" = 0.5, 
-                                    "Refugee or asylum-seeker codes" = 0.5, 
-                                    "Interpreter-related codes" = 0.5, 
-                                    "usage (scaled)" = 1.2)) +
+                                    "Refugee or asylum-seeker codes" = 0.5,
+                                    "Language-related codes" = 0.5,
+                                    "Interpreter-related codes" = 0.5)) +
+  #                                  "usage (scaled)" = 1.2)) +
   scale_linetype_manual(values = c("All migration-related codes" = "solid", 
                                    "Country of birth codes" = "solid", 
                                    "Immigration legal status codes" = "solid", 
-                                   "Refugee or asylum-seeker codes" = "solid", 
-                                   "Interpreter-related codes" = "solid", 
-                                   "usage (scaled)" = "solid")) +  
+                                   "Refugee or asylum-seeker codes" = "solid",
+                                   "Language-related codes" = "solid",
+                                   "Interpreter-related codes" = "solid")) + 
+   #                                "usage (scaled)" = "solid")) +  
   
   labs(
     title = " ",
@@ -313,7 +218,6 @@ plot <- ggplot(combined_data, aes(x = end_date)) +
                         #breaks = seq(0, max(combined_data$scaled_usage, na.rm = TRUE), by = 10000)  # Add more breaks for the secondary axis
     )
   ) +
-  
   theme_bw() + 
   theme(
     axis.title.x = element_text(margin = margin(t = 10)),  
@@ -361,42 +265,6 @@ percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_dat
 
 percentage_increase_plot
 ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
-
-
-
-#comparison <- data.frame(start_date = for_plot_allcodes$start_date,
-                         # end_date = for_plot_allcodes$end_date,
-                         # all_snomed = for_plot_allcodes$usage,
-                         # migration_snomed = for_plot$usage)
-# 
-# comparison <- comparison |>
-#   mutate(percent = round((migration_snomed/all_snomed * 100),4))
-# 
-# plot_comparison <- ggplot(comparison, aes(x = end_date, y = percent)) +
-#   geom_line(color = "black") + 
-#   geom_point(color = "black") +  
-#   scale_color_viridis_d() +  
-#   labs(
-#     title = " ",
-#     x = "Date",
-#     y = "Percentage of all SNOMED-CT coding"
-#   ) +
-#   scale_x_date(
-#     breaks = seq(from = min(comparison$end_date), to = max(comparison$end_date), by = "1 year"),  
-#     labels = date_format("%Y") 
-#   ) +
-#   scale_y_continuous(#limits = c(0, max(comparison$percent) + 2),  
-#                      labels = label_comma()) +  
-#   theme_bw() + 
-#   theme(
-#     axis.title.x = element_text(margin = margin(t = 10)),  
-#     axis.title.y = element_text(margin = margin(r = 10)),
-#     legend.title = element_blank()
-#   )
-# 
-# plot_comparison
-# 
-# ggsave("output/comparison_plot.png", plot = plot_comparison, width = 8, height = 6, dpi = 300)
 
 # Immigration data -----
 
