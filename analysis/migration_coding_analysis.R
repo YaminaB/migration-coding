@@ -7,9 +7,6 @@ library(opencodes)
 # Create df from the snomed codes 
 snomed_usage <- opencodes::snomed_usage
 
-#codelist_out <- codelist |> 
-#  filter(!(code %in% snomed_usage$snomed_code))
-
 # function to generate outputs
 
 generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage) {
@@ -60,7 +57,8 @@ generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage)
   
   # Calculate % increase
   usage_trend <- usage_trend %>%
-    mutate(perc_increase = (usage - first(usage)) / first(usage) * 100)
+    mutate(perc_increase = (usage - first(usage)) / first(usage) * 100,
+           perc_increase_yearly = (usage - lag(usage)) / lag(usage) * 100)
   
   return(list(
     codelist = codelist_in_use,
@@ -155,7 +153,7 @@ combined_totals_table <- read_docx() %>%
   body_add_flextable(combined_totals_table) 
 print(combined_totals_table, target = "output/combined_totals_table.docx")
 
-# All snomed code usage 
+# All snomed code usage (bars on the same graph - Figure 1)
 
 for_plot_allcodes <- snomed_usage |>
   group_by(start_date, end_date) |>
@@ -232,25 +230,24 @@ plot
 ggsave("output/migration_code_usage.png", plot = plot, width = 8, height = 6, dpi = 300)
 
 
-# All SNOMED-CT code usage -----
+# Percentage increase in all and migration-related SNOMED-CT code usage (Supplementary Figures) -----
 
-for_plot_allcodes <- snomed_usage |>
-  group_by(start_date, end_date) |>
-  summarise(usage = sum(usage), .groups = "drop") 
-
-all_snomed_percentage_increase <- for_plot_allcodes %>%
+all_snomed_percentage_increase <- snomed_usage %>%
+  group_by(start_date, end_date) %>%
+  summarise(usage = sum(usage), .groups = "drop") %>%
   mutate(perc_increase = (usage-first(usage))/first(usage) *100) %>%
+  mutate(perc_increase_yearly = (usage -lag(usage))/lag(usage) *100) %>%
   mutate(code_type = "All SNOMED-CT codes")
+  
+all_migration_snomed_percentage_increase <- general_migrant_results$usage_trend 
 
-# Comparison with overall SNOMED-CT code usage ----
+percentage_increase_combined <- rbind(all_snomed_percentage_increase, all_migration_snomed_percentage_increase)
 
-percentage_increase_combined <- rbind(all_snomed_percentage_increase, all_migration_codes_percentage_increase)
-
-percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_date, y = perc_increase, fill = code_type)) +
-  geom_bar(stat = "identity", position = "dodge") +  # "dodge" places bars side by side
+percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_date, y = perc_increase_yearly, fill = code_type)) +
+  geom_bar(stat = "identity", position = "dodge") +  
   labs(
     x = "Year",
-    y = "Percentage increase"
+    y = "Percentage change in SNOMED-CT code usage"
   ) +
   scale_x_date(
     breaks = seq(from = min(for_plot_allcodes$end_date), to = max(for_plot_allcodes$end_date), by = "1 year"),  
@@ -264,7 +261,34 @@ percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_dat
         axis.title.y = element_text(margin = margin(r = 10)),) 
 
 percentage_increase_plot
-ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
+ggsave("output/percentage_increase_plot_updated.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
+
+# Migration-related SNOMED-CT coding as a percentage of overall SNOMED-CT coding 
+
+migration_codes_as_percentage_of_overall <- all_migration_snomed_percentage_increase %>%
+  left_join(all_snomed_percentage_increase, by = c("start_date", "end_date")) %>%
+  mutate(percent_of_overall = usage.x/usage.y * 100) %>%
+  select(c(start_date, end_date, usage.x, usage.y, percent_of_overall))
+
+percentage_of_overall_plot <- ggplot(migration_codes_as_percentage_of_overall, aes(x = end_date, y = percent_of_overall)) +
+  geom_bar(stat = "identity", fill = "#1b9e77") +  
+  labs(
+    x = "Year",
+    y = "Migration-related SNOMED-CT coding \nas percentage of overall SNOMED-CT coding"
+  ) +
+  scale_x_date(
+    breaks = seq(from = min(for_plot_allcodes$end_date), to = max(for_plot_allcodes$end_date), by = "1 year"),  
+    labels = date_format("%Y") 
+  ) +
+  ylim( c(0,0.10)) +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 10)),  
+        axis.title.y = element_text(margin = margin(r = 10))) 
+
+percentage_of_overall_plot
+ggsave("output/percentage_of_overall_plot.png", plot = percentage_of_overall_plot, width = 8, height = 6, dpi = 300)
 
 # Immigration data -----
 
