@@ -1,14 +1,20 @@
-#install.packages("pacman")
+
+##################################################################################################################
+# Analysis code for the paper entitled "The coding of migration status in English primary care from 2011 to 2024"
+# Author: Yamina Boukari
+#         Bennett Institute for Applied Data Science
+#         University of Oxford, 2025
+###################################################################################################################
+
 library(pacman)
-p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, officer, readr, RColorBrewer, readxl, readODS, tidyr, stringr)
-#remotes::install_github("bennettoxford/opencodes")
-library(opencodes)
+p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, 
+       officer, readr, RColorBrewer, readxl, readODS, tidyr, 
+       stringr, opencodes)
 
 # Create df from the snomed codes 
 snomed_usage <- opencodes::snomed_usage
 
 # function to generate outputs
-
 generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage) {
   
   # Load codelist
@@ -68,8 +74,7 @@ generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage)
   ))
 }
 
-# general migrant ######
-
+# General migrant ######
 general_migrant_results <- generate_codelist_analysis(
   codelist_path = "user/YaminaB/migration-status/47586e6d",
   output_name = "All migration-related",
@@ -77,7 +82,6 @@ general_migrant_results <- generate_codelist_analysis(
 )
 
 # Country of birth ----
-
 cob_migrant_results <- generate_codelist_analysis(
   codelist_path = "user/YaminaB/born-outside-the-uk/0637ca14",
   output_name = "Country of birth",
@@ -85,7 +89,6 @@ cob_migrant_results <- generate_codelist_analysis(
 )
 
 # Interpreter needed -----
-
 interpreter_migrant_results <- generate_codelist_analysis(
   codelist_path = "user/YaminaB/interpreter-required/3856b07e",
   output_name = "Interpreter-related",
@@ -93,7 +96,6 @@ interpreter_migrant_results <- generate_codelist_analysis(
 )
 
 # Refugees and asylum seekers -----
-
 refugee_migrant_results <- generate_codelist_analysis(
   codelist_path = "user/YaminaB/asylum-seeker-or-refugee/35a3f088",
   output_name = "Refugee or asylum-seeker",
@@ -101,7 +103,6 @@ refugee_migrant_results <- generate_codelist_analysis(
 )
 
 # Immigration legal status -----
-
 legal_status_migrant_results <- generate_codelist_analysis(
   codelist_path = "user/YaminaB/uk-visa/4eb363bd",
   output_name = "Immigration legal status",
@@ -109,16 +110,13 @@ legal_status_migrant_results <- generate_codelist_analysis(
 )
 
 # Language
-
 language_migrant_results <- generate_codelist_analysis(
   codelist_path = "user/YaminaB/english-not-main-language/2e48fb38",
   output_name = "Language-related",
   snomed_usage = snomed_usage
 )
 
-
-## Combine data ----
-
+# Combine data ----
 combined_data <- bind_rows(
   general_migrant_results$usage_trend,
   language_migrant_results$usage_trend,
@@ -154,15 +152,13 @@ combined_totals_table <- read_docx() %>%
 print(combined_totals_table, target = "output/combined_totals_table.docx")
 
 # All snomed code usage (bars on the same graph - Figure 1)
-
-for_plot_allcodes <- snomed_usage |>
-  group_by(start_date, end_date) |>
-  summarise(usage = sum(usage), .groups = "drop") # |>
- # mutate(code_type = "All SNOMED-CT codes")
+for_plot_allcodes <- snomed_usage %>%
+  group_by(start_date, end_date) %>%
+  summarise(usage = sum(usage), .groups = "drop") 
 
 combined_data <- left_join(combined_data, for_plot_allcodes, by = "end_date")
 
-## Plot data ----
+# Plot data ----
 
 # create scale factor for second y axis 
 scale_factor <- max(combined_data$usage.x, na.rm = TRUE) / max(combined_data$usage.y, na.rm = TRUE)
@@ -186,14 +182,12 @@ plot <- ggplot(combined_data, aes(x = end_date)) +
                                     "Refugee or asylum-seeker codes" = 0.5,
                                     "Language-related codes" = 0.5,
                                     "Interpreter-related codes" = 0.5)) +
-  #                                  "usage (scaled)" = 1.2)) +
   scale_linetype_manual(values = c("All migration-related codes" = "solid", 
                                    "Country of birth codes" = "solid", 
                                    "Immigration legal status codes" = "solid", 
                                    "Refugee or asylum-seeker codes" = "solid",
                                    "Language-related codes" = "solid",
                                    "Interpreter-related codes" = "solid")) + 
-   #                                "usage (scaled)" = "solid")) +  
   
   labs(
     title = " ",
@@ -212,9 +206,7 @@ plot <- ggplot(combined_data, aes(x = end_date)) +
     labels = scales::comma_format(),
     # Right y-axis scale (scaled usage.y)
     sec.axis = sec_axis(~ . / scale_factor, name = "All SNOMED-CT code usage",
-                        labels = scales::comma_format(), 
-                        #breaks = seq(0, max(combined_data$scaled_usage, na.rm = TRUE), by = 10000)  # Add more breaks for the secondary axis
-    )
+                        labels = scales::comma_format())
   ) +
   theme_bw() + 
   theme(
@@ -229,42 +221,19 @@ plot
 
 ggsave("output/migration_code_usage.png", plot = plot, width = 8, height = 6, dpi = 300)
 
-
-# Percentage increase in all and migration-related SNOMED-CT code usage (Supplementary Figures) -----
-
+# Comparisons with overall SNOMED-CT coding ----
 all_snomed_percentage_increase <- snomed_usage %>%
   group_by(start_date, end_date) %>%
   summarise(usage = sum(usage), .groups = "drop") %>%
   mutate(perc_increase = (usage-first(usage))/first(usage) *100) %>%
   mutate(perc_increase_yearly = (usage -lag(usage))/lag(usage) *100) %>%
   mutate(code_type = "All SNOMED-CT codes")
-  
+
 all_migration_snomed_percentage_increase <- general_migrant_results$usage_trend 
 
 percentage_increase_combined <- rbind(all_snomed_percentage_increase, all_migration_snomed_percentage_increase)
 
-percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_date, y = perc_increase_yearly, fill = code_type)) +
-  geom_bar(stat = "identity", position = "dodge") +  
-  labs(
-    x = "Year",
-    y = "Percentage change in SNOMED-CT code usage"
-  ) +
-  scale_x_date(
-    breaks = seq(from = min(for_plot_allcodes$end_date), to = max(for_plot_allcodes$end_date), by = "1 year"),  
-    labels = date_format("%Y") 
-  ) +
-  scale_fill_brewer(palette = "Dark2") +
-  theme_bw() +
-  theme(legend.position = "bottom", 
-        legend.title = element_blank(),
-        axis.title.x = element_text(margin = margin(t = 10)),  
-        axis.title.y = element_text(margin = margin(r = 10)),) 
-
-percentage_increase_plot
-ggsave("output/percentage_increase_plot_updated.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
-
-# Migration-related SNOMED-CT coding as a percentage of overall SNOMED-CT coding 
-
+# Migration-related SNOMED-CT coding as a percentage of overall SNOMED-CT coding (Supplementary Figure 1)
 migration_codes_as_percentage_of_overall <- all_migration_snomed_percentage_increase %>%
   left_join(all_snomed_percentage_increase, by = c("start_date", "end_date")) %>%
   mutate(percent_of_overall = usage.x/usage.y * 100) %>%
@@ -289,6 +258,49 @@ percentage_of_overall_plot <- ggplot(migration_codes_as_percentage_of_overall, a
 
 percentage_of_overall_plot
 ggsave("output/percentage_of_overall_plot.png", plot = percentage_of_overall_plot, width = 8, height = 6, dpi = 300)
+
+# Period Percentage increase in migration-related and overall SNOMED-CT code usage (Supplementary Figure 2)
+percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_date, y = perc_increase, fill = code_type)) +
+  geom_bar(stat = "identity", position = "dodge") +  
+  labs(
+    x = "Year",
+    y = "Percentage change in SNOMED-CT code usage"
+  ) +
+  scale_x_date(
+    breaks = seq(from = min(for_plot_allcodes$end_date), to = max(for_plot_allcodes$end_date), by = "1 year"),  
+    labels = date_format("%Y") 
+  ) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 10)),  
+        axis.title.y = element_text(margin = margin(r = 10)),) 
+
+percentage_increase_plot
+ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
+
+
+# Annual percentage increase in migration-related and overall SNOMED-CT code usage (Supplementary Figure 3) -----
+percentage_increase_annual_plot <- ggplot(percentage_increase_combined, aes(x = end_date, y = perc_increase_yearly, fill = code_type)) +
+  geom_bar(stat = "identity", position = "dodge") +  
+  labs(
+    x = "Year",
+    y = "Percentage change in SNOMED-CT code usage"
+  ) +
+  scale_x_date(
+    breaks = seq(from = min(for_plot_allcodes$end_date), to = max(for_plot_allcodes$end_date), by = "1 year"),  
+    labels = date_format("%Y") 
+  ) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 10)),  
+        axis.title.y = element_text(margin = margin(r = 10)),) 
+
+percentage_increase_annual_plot
+ggsave("output/percentage_increase_annual_plot.png", plot = percentage_increase_annual_plot, width = 8, height = 6, dpi = 300)
 
 # Immigration data -----
 
@@ -366,7 +378,6 @@ entry_clearance_visa_data <- read_excel("temp.xlsx", sheet = sheet_name, skip = 
 entry_clearance_visa_data <- na.omit(entry_clearance_visa_data)
 
 ## Study
-
 study_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Study") |>
   group_by(Year) |>
@@ -376,7 +387,6 @@ study_visas_yeartotals <- entry_clearance_visa_data |>
   rename(year = Year)
 
 ## Work visas 
-
 work_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Work") |>
   group_by(Year) |>
@@ -386,7 +396,6 @@ work_visas_yeartotals <- entry_clearance_visa_data |>
   rename(year = Year)
 
 ## Family visas
-
 family_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Family") |>
   group_by(Year) |>
@@ -396,7 +405,6 @@ family_visas_yeartotals <- entry_clearance_visa_data |>
   rename(year = Year)
 
 # Combine asylum and refugee related visa types 
-
 all_refugee_asylum_yeartotals <- rbind(asylum_applications_yeartotals, 
                             resettled_refugee_noKHorUKr_yeartotals,
                             bno_ukraine_data_yeartotals)
@@ -406,7 +414,6 @@ all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
   mutate(group = "Asylum and refugee status")
 
 # Combine visa types 
-
 all_visa_types_totals <- rbind(for_plot_ons, study_visas_yeartotals, 
                                work_visas_yeartotals, 
                                family_visas_yeartotals, 
@@ -449,7 +456,6 @@ plot_immigration_data
 ggsave("output/visa_type_plot.png", plot = plot_immigration_data, width = 8, height = 6, dpi = 300)
 
 # Census 2021 comparison ----
-
 # get snomed-ct data for 2020/21 and earlier (Census was on 21st March 2021)
 
 snomed_usage_20_21_and_earlier <- snomed_usage %>%
@@ -468,7 +474,6 @@ cob_data_snomed_ranked <- cob_data_snomed |>
 
 # Census 2021 CoB data summary - accessed 04 April 2025
 # from: https://www.ons.gov.uk/datasets/create/filter-outputs/ac2b3af3-76a6-46e0-94e1-de929e9fc920#get-data
-
 census_cob_data <- read_excel("custom-filtered-2025-04-04T12_09_23Z.xlsx") 
 
 census_cob_data <- census_cob_data %>%
@@ -499,7 +504,6 @@ census_cob_data <- census_cob_data %>%
            str_trim())
   
 # join
-
 census_and_snomed_cob <- census_cob_data %>%
   left_join(cob_data_snomed_ranked, by = c("country")) %>%
   select(c(country, `Census 2021`, percent_usage)) %>%
@@ -522,7 +526,6 @@ census_and_snomed_cob$country <- factor(census_and_snomed_cob$country, levels =
   
   
 # plot
-
 plot_census_snomed_cob <- ggplot(census_and_snomed_cob, aes(x = country, y = percentage, fill = data_source)) +
   geom_col(position = position_dodge(width = 0.8), width = 0.7) + 
   scale_fill_brewer(palette = "Dark2") +
@@ -541,22 +544,3 @@ plot_census_snomed_cob
 
 ggsave("output/census_snomed_cob.png", plot = plot_census_snomed_cob, width = 8, height = 6, dpi = 300)
 
-
-## Checks ----
-
-# Confirm that all sub-groups of migration codes are also in the main migration codelist 
-
-
-check_anti_join_terms <- function(df1, df2, by) {
-  result <- anti_join(df1, df2, by = by)
-  if (nrow(result) == 0) {
-    return(TRUE)  # All rows in df1 are in df2
-  } else {
-    return(result)  # Return the unmatched rows
-  }
-}
-
-check_anti_join_terms(cob_in, general_migrant_in, "term")
-check_anti_join_terms(refugee_in, general_migrant_in, "term")
-check_anti_join_terms(legal_status_in, general_migrant_in, "term")
-check_anti_join_terms(interpreter_in, general_migrant_in, "term")
