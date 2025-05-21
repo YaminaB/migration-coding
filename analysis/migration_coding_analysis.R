@@ -9,10 +9,7 @@
 library(pacman)
 p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, 
        officer, readr, RColorBrewer, readxl, readODS, tidyr, 
-       stringr, opencodes)
-
-# Create df from the snomed codes 
-snomed_usage <- opencodes::snomed_usage
+       stringr, opencodecounts, here, fs, janitor)
 
 # function to generate outputs
 generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage) {
@@ -27,10 +24,14 @@ generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage)
   # Export full codelist table
   ft_codelist <- flextable(codelist_in_use) %>%
     autofit() %>%
-    set_table_properties(layout = "autofit") 
+    set_table_properties(layout = "autofit")
+
+  # Create output directory if it doesnt exist
+  dir_create(here("output", "tables"))
+
   doc <- read_docx() %>%
     body_add_flextable(ft_codelist) %>%
-    print(target = paste0("output/", output_name, "_codelist_table.docx"))
+    print(target = here("output", "tables", paste0(make_clean_names(output_name), "_codelist_table.docx")))
   
   # Filter usage data
   codelist_usage <- snomed_usage %>%
@@ -53,7 +54,7 @@ generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage)
     set_table_properties(layout = "autofit")
   doc_2 <- read_docx() %>%
     body_add_flextable(ft_top5) %>%
-    print(target = paste0("output/", output_name, "_top5.docx"))
+    print(target = here("output", "tables", paste0(make_clean_names(output_name), "_top5.docx")))
   
   # For plotting
   usage_trend <- codelist_usage %>%
@@ -124,16 +125,18 @@ combined_data <- bind_rows(
   interpreter_migrant_results$usage_trend,
   refugee_migrant_results$usage_trend,
   legal_status_migrant_results$usage_trend
+) %>% 
+  replace_na(list(usage = 0)) %>%
+  mutate(code_type = factor(code_type, 
+    levels = c(
+      "All migration-related codes", 
+      "Language-related codes",
+      "Interpreter-related codes",
+      "Country of birth codes", 
+      "Immigration legal status codes", 
+      "Refugee or asylum-seeker codes")
+  )
 )
-combined_data$usage[is.na(combined_data$usage)] <- 0
-
-combined_data$code_type <- factor(combined_data$code_type, levels = 
-                                    c("All migration-related codes", 
-                                      "Language-related codes",
-                                      "Interpreter-related codes",
-                                      "Country of birth codes", 
-                                      "Immigration legal status codes", 
-                                      "Refugee or asylum-seeker codes"))
 
 combined_data_totals <- bind_rows(
   general_migrant_results$total,
@@ -149,7 +152,7 @@ combined_totals_table <- flextable(combined_data_totals) |>
   set_table_properties(layout = "autofit")
 combined_totals_table <- read_docx() %>% 
   body_add_flextable(combined_totals_table) 
-print(combined_totals_table, target = "output/combined_totals_table.docx")
+print(combined_totals_table, target = "output/tables/combined_totals_table.docx")
 
 # All snomed code usage (bars on the same graph - Figure 1)
 for_plot_allcodes <- snomed_usage %>%
@@ -219,7 +222,15 @@ plot <- ggplot(combined_data, aes(x = end_date)) +
 
 plot
 
-ggsave("output/migration_code_usage.png", plot = plot, width = 8, height = 6, dpi = 300)
+dir_create(here("output", "figures"))
+
+ggsave(
+  "output/figures/migration_code_usage.png",
+  plot = plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
 
 # Comparisons with overall SNOMED-CT coding ----
 all_snomed_percentage_increase <- snomed_usage %>%
