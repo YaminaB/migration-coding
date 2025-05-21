@@ -9,10 +9,7 @@
 library(pacman)
 p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, 
        officer, readr, RColorBrewer, readxl, readODS, tidyr, 
-       stringr, opencodes)
-
-# Create df from the snomed codes 
-snomed_usage <- opencodes::snomed_usage
+       stringr, opencodecounts)
 
 # function to generate outputs
 generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage) {
