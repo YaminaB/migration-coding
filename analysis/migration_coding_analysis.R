@@ -7,6 +7,7 @@
 ###################################################################################################################
 
 library(pacman)
+remotes::install_github("bennettoxford/opencodecounts")
 p_load(remotes, dplyr, ggplot2, scales, viridis, flextable, 
        officer, readr, RColorBrewer, readxl, readODS, tidyr, 
        stringr, opencodecounts, here, fs, janitor)
@@ -315,8 +316,7 @@ ggsave("output/percentage_increase_annual_plot.png", plot = percentage_increase_
 
 # Immigration data -----
 
-# Add immigration data from lamis: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/migrationwithintheuk/datasets/localareamigrationindicatorsunitedkingdom
-# for international long-term migration: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
+# international long-term migration data available here (accessed 19 March 2025): https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
 
 ons <- read_csv("long_term_international_migration_UK_ONS.csv", col_types = cols(population = col_double()))
 
@@ -325,47 +325,53 @@ for_plot_ons <- ons %>%
   select(-year_full) %>%
   rename(total = population)
 
-# Asylum applications, initial positive decisions, and resettled refugees (incl. Afghan resettlement scheme) - accessed 19 March 2025
-# https://assets.publishing.service.gov.uk/media/67bc506cb3a80ad63e782c90/asylum-applications-datasets-dec-2024.xlsx
-# via this main page: https://www.gov.uk/government/statistical-data-sets/immigration-system-statistics-data-tables#asylum-and-resettlement 
+# Asylum claims - accessed 28 May 2025
+# From: https://assets.publishing.service.gov.uk/media/68245fe5b9226dd8e81ab820/asylum-claims-datasets-mar-2025.xlsx
 
-url <- "https://assets.publishing.service.gov.uk/media/67bc506cb3a80ad63e782c90/asylum-applications-datasets-dec-2024.xlsx"
-download.file(url, destfile = "temp.xlsx", mode = "wb")
-
-# asylum applications
-sheet_name <- "Data - Asy_D01" # asylum applications
-asylum_applications_data <- read_excel("temp.xlsx", sheet = sheet_name, skip = 1) 
+sheet_name <- "Data_Asy_D01" # asylum applications
+asylum_applications_data <- read_excel("asylum-claims-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 1) 
 asylum_applications_data <- na.omit(asylum_applications_data)
 
 asylum_applications_yeartotals <- asylum_applications_data |>
   group_by(Year) |>
-  summarise(total = sum(Applications), .groups = "drop") |>
-  mutate(group = "Asylum applications") |>
-  filter(Year >= 2012) |>
+  summarise(total = sum(Claims), .groups = "drop") |>
+  mutate(group = "Claims") |>
+  filter((Year >= 2012) & (Year <2025)) |>
   rename(year = Year)
 
-# resettled refugees (excluding Hong Kong and Ukraine schemes)
-sheet_name <- "Data - Asy_D02"
-resettled_refugee_noHKorUkr_data <- read_excel("temp.xlsx", sheet = sheet_name, skip = 1) 
+# resettled refugees (excluding Hong Kong and Ukraine schemes). Accessed 28 May 2025
+# from https://assets.publishing.service.gov.uk/media/68232edbf58b0afa5e043946/resettlement-scheme-datasets-mar-2025.xlsx
+
+sheet_name <- "Data_Res_D02"
+resettled_refugee_noHKorUkr_data <- read_excel("resettlement-scheme-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 1) 
 resettled_refugee_noHKorUkr_data <- na.omit(resettled_refugee_noHKorUkr_data)
 
+resettled_refugee_noHKorUkr_data$`Resettlement Scheme` <- as.factor(resettled_refugee_noHKorUkr_data$`Resettlement Scheme`)
+levels(resettled_refugee_noHKorUkr_data$`Resettlement Scheme`)
+
+resettled_refugee_noHKorUkr_data$Nationality <- as.factor(resettled_refugee_noHKorUkr_data$Nationality)
+levels(resettled_refugee_noHKorUkr_data$Nationality)
+
+resettled_refugee_noHKorUkr_data$`Case outcome group`<- as.factor(resettled_refugee_noHKorUkr_data$`Case outcome group`)
+levels(resettled_refugee_noHKorUkr_data$`Case outcome group`)
+
 resettled_refugee_noKHorUKr_yeartotals <- resettled_refugee_noHKorUkr_data |>
-  filter(`Case type` != "Asylum Case") |>
   group_by(Year) |>
-  summarise(total = sum(Decisions), .groups = "drop") |>
+  summarise(total = sum(Persons), .groups = "drop") |>
   mutate(group = "Resettled refugees (excluding Hong Kong and Ukraine schemes") |>
-  filter(Year >= 2012) |>
+  filter((Year >= 2012) & (Year <2025)) |>
   rename(year = Year)
 
-# Ukraine schemes and BNO (Hong Kong) visas - accessed 19 March 2025
-# From: https://assets.publishing.service.gov.uk/media/67bc514298ea2db44faddd4f/asylum-summary-dec-2024-tables.ods 
+# Ukraine schemes and BNO (Hong Kong) visas - accessed 28 May 2025
+# From: https://assets.publishing.service.gov.uk/media/68243df6f58b0afa5e0439ca/safe-legal-routes-summary-tables-mar-2025-tables.xlsx 
 
-url <- "https://assets.publishing.service.gov.uk/media/67bc514298ea2db44faddd4f/asylum-summary-dec-2024-tables.ods"
-download.file(url, destfile = "temp.xlsx", mode = "wb")
-sheet_name <- "Asy_11" 
-bno_ukraine_data <- read_ods("temp.xlsx", sheet = sheet_name, skip = 1) 
+sheet_name <- "Hum_01" 
+bno_ukraine_data <- read_excel("safe-legal-routes-summary-tables-mar-2025-tables.xlsx", sheet = sheet_name, skip = 1) 
 
-bno_ukraine_data <- bno_ukraine_data[c(7,10),1:(ncol(bno_ukraine_data)-3)]
+bno_ukraine_data <- bno_ukraine_data[c(7, 18, 21), 1:16]
+colnames(bno_ukraine_data) <- as.character(bno_ukraine_data[1, ])
+bno_ukraine_data <- bno_ukraine_data[-1, ]
+
 bno_ukraine_data$Year <- as.factor(bno_ukraine_data$Year)
 levels(bno_ukraine_data$Year)
 
@@ -374,18 +380,20 @@ bno_ukraine_data_yeartotals <- bno_ukraine_data %>%
                names_to = "year",
                values_to = "total") %>%
   rename(group = Year) %>%
-  filter(year >=2012) %>%
-  mutate(group = ifelse(group == "BN(O) Route visa grants(subset of Total BN(O) Hong Kong visa grants)", "BNO Hong Kong visas", group)) %>%
-  mutate(group = ifelse(group == "Ukraine Visa Schemes grants(subset of Total Ukraine Visa grants)", "Ukraine visa schemes", group))
+  filter(year >= 2012) %>%
+  mutate(
+    group = as.character(group),
+    group = ifelse(group == "Of which BN(O) Route visa grants", "BNO Hong Kong visas", group),
+    group = ifelse(group == "Of which Ukraine Visa Schemes grants", "Ukraine visa schemes", group),
+    total = ifelse(total == "z", NA, total)
+  )
 
-# Other visa types - accessed 19 March 2025
+# Other visa types - accessed 28 May 2025
 # From https://assets.publishing.service.gov.uk/media/67bc8251d157fd4b79addd86/entry-clearance-visa-outcomes-datasets-dec-2024.xlsx
 # From this webpage: https://www.gov.uk/government/statistical-data-sets/immigration-system-statistics-data-tables#entry-clearance-visas-granted-outside-the-uk
 
-url <- "https://assets.publishing.service.gov.uk/media/67bc8251d157fd4b79addd86/entry-clearance-visa-outcomes-datasets-dec-2024.xlsx"
-download.file(url, destfile = "temp.xlsx", mode = "wb")
 sheet_name <- "Data_Vis_D02" 
-entry_clearance_visa_data <- read_excel("temp.xlsx", sheet = sheet_name, skip = 1) 
+entry_clearance_visa_data <- read_excel("entry-clearance-visa-outcomes-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 3) 
 entry_clearance_visa_data <- na.omit(entry_clearance_visa_data)
 
 ## Study
@@ -420,8 +428,9 @@ all_refugee_asylum_yeartotals <- rbind(asylum_applications_yeartotals,
                             resettled_refugee_noKHorUKr_yeartotals,
                             bno_ukraine_data_yeartotals)
 all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
+  mutate(total = as.numeric(total)) %>% 
   group_by(year) %>%
-  summarise(total = sum(total)) %>%
+  summarise(total = sum(total, na.rm = TRUE)) %>% 
   mutate(group = "Asylum and refugee status")
 
 # Combine visa types 
@@ -439,6 +448,9 @@ all_visa_types_totals$group <- factor(all_visa_types_totals$group, levels =
                                       "Work visa status", 
                                       "Family visa status", 
                                       "Asylum and refugee status"))
+
+write.csv(all_visa_types_totals, "output/all_visa_types_totals.csv", row.names = FALSE)
+
 
 plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, color = group)) +
   geom_line(na.rm = TRUE) + 
