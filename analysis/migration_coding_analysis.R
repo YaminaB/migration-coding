@@ -316,7 +316,8 @@ ggsave("output/percentage_increase_annual_plot.png", plot = percentage_increase_
 
 # Immigration data -----
 
-# international long-term migration data available here (accessed 19 March 2025): https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
+# international long-term migration data available here 
+# (accessed 17 June 2025): https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
 
 ons <- read_csv("long_term_international_migration_UK_ONS.csv", col_types = cols(population = col_double()))
 
@@ -338,6 +339,19 @@ asylum_applications_yeartotals <- asylum_applications_data |>
   mutate(group = "Claims") |>
   filter((Year >= 2012) & (Year <2025)) |>
   rename(year = Year)
+
+# Asylum grants and refusals
+sheet_name <- "Data_Asy_D02" 
+asylum_grants_refusals_data <- read_excel("asylum-claims-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 1) 
+asylum_grants_refusals_data <- na.omit(asylum_grants_refusals_data)
+
+asylum_grants_refusals_yeartotals <- asylum_grants_refusals_data |>
+  group_by(Year) |>
+  summarise(total = sum(Decisions), .groups = "drop") |>
+  mutate(group = "Decisions") |>
+  filter((Year >= 2012) & (Year <2025)) |>
+  rename(year = Year)
+
 
 # resettled refugees (excluding Hong Kong and Ukraine schemes). Accessed 28 May 2025
 # from https://assets.publishing.service.gov.uk/media/68232edbf58b0afa5e043946/resettlement-scheme-datasets-mar-2025.xlsx
