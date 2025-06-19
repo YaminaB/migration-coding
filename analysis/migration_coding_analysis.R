@@ -319,12 +319,18 @@ ggsave("output/percentage_increase_annual_plot.png", plot = percentage_increase_
 # international long-term migration data available here 
 # (accessed 17 June 2025): https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
 
-ons <- read_csv("long_term_international_migration_UK_ONS.csv", col_types = cols(population = col_double()))
+ons <- read_excel("long_term_international_migration_UK_ONS_may25v5.0.xlsx", sheet = "Table 1", skip = 5 )
 
-for_plot_ons <- ons %>%
+ons_cleaned <- ons %>%
+  mutate(across(where(is.character), as.factor))
+
+ons_cleaned <- ons_cleaned %>%
+  filter(`Flow\r\n[note 2]` == "Immigration") %>%
+  filter(grepl("YE Jun", `Period\r\n[note 10]`)) %>%
+  mutate(year = 2000 + as.numeric(str_extract(`Period\r\n[note 10]`, "\\d+"))) %>%
+  mutate(total = `All Nationalities\r\n[note 1]` - `British\r\n[definition 2]`) %>%
   mutate(group = "Long-term immigration to the UK") %>%
-  select(-year_full) %>%
-  rename(total = population)
+  select(c(year, total, group))
 
 # Asylum claims - accessed 28 May 2025
 # From: https://assets.publishing.service.gov.uk/media/68245fe5b9226dd8e81ab820/asylum-claims-datasets-mar-2025.xlsx
@@ -451,7 +457,7 @@ all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
   mutate(group = "Asylum and humanitarian status")
 
 # Combine visa types 
-all_visa_types_totals <- rbind(for_plot_ons, study_visas_yeartotals, 
+all_visa_types_totals <- rbind(ons_cleaned, study_visas_yeartotals, 
                                work_visas_yeartotals, 
                                family_visas_yeartotals, 
                                all_refugee_asylum_yeartotals)
