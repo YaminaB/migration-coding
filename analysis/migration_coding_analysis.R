@@ -346,17 +346,17 @@ asylum_applications_yeartotals <- asylum_applications_data |>
   filter((Year >= 2012) & (Year <2025)) |>
   rename(year = Year)
 
-# Asylum grants and refusals
-sheet_name <- "Data_Asy_D02" 
-asylum_grants_refusals_data <- read_excel("asylum-claims-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 1) 
-asylum_grants_refusals_data <- na.omit(asylum_grants_refusals_data)
-
-asylum_grants_refusals_yeartotals <- asylum_grants_refusals_data |>
-  group_by(Year) |>
-  summarise(total = sum(Decisions), .groups = "drop") |>
-  mutate(group = "Decisions") |>
-  filter((Year >= 2012) & (Year <2025)) |>
-  rename(year = Year)
+# # Asylum grants and refusals
+# sheet_name <- "Data_Asy_D02" 
+# asylum_grants_refusals_data <- read_excel("asylum-claims-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 1) 
+# asylum_grants_refusals_data <- na.omit(asylum_grants_refusals_data)
+# 
+# asylum_grants_refusals_yeartotals <- asylum_grants_refusals_data |>
+#   group_by(Year) |>
+#   summarise(total = sum(Decisions), .groups = "drop") |>
+#   mutate(group = "Decisions") |>
+#   filter((Year >= 2012) & (Year <2025)) |>
+#   rename(year = Year)
 
 # resettled refugees (excluding Hong Kong and Ukraine schemes). Accessed 28 May 2025
 # from https://assets.publishing.service.gov.uk/media/68232edbf58b0afa5e043946/resettlement-scheme-datasets-mar-2025.xlsx
@@ -447,7 +447,6 @@ family_visas_yeartotals <- entry_clearance_visa_data |>
 
 # Combine asylum and refugee related visa types 
 all_refugee_asylum_yeartotals <- rbind(asylum_applications_yeartotals,
-                                       asylum_grants_refusals_yeartotals,
                                        resettled_refugee_noKHorUKr_yeartotals,
                                        bno_ukraine_data_yeartotals)
 all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
