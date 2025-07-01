@@ -316,14 +316,21 @@ ggsave("output/percentage_increase_annual_plot.png", plot = percentage_increase_
 
 # Immigration data -----
 
-# international long-term migration data available here (accessed 19 March 2025): https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
+# international long-term migration data available here 
+# (accessed 17 June 2025): https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/internationalmigration/datasets/longterminternationalimmigrationemigrationandnetmigrationflowsprovisional 
 
-ons <- read_csv("long_term_international_migration_UK_ONS.csv", col_types = cols(population = col_double()))
+ons <- read_excel("long_term_international_migration_UK_ONS_may25v5.0.xlsx", sheet = "Table 1", skip = 5 )
 
-for_plot_ons <- ons %>%
+ons_cleaned <- ons %>%
+  mutate(across(where(is.character), as.factor))
+
+ons_cleaned <- ons_cleaned %>%
+  filter(`Flow\r\n[note 2]` == "Immigration") %>%
+  filter(grepl("YE Jun", `Period\r\n[note 10]`)) %>%
+  mutate(year = 2000 + as.numeric(str_extract(`Period\r\n[note 10]`, "\\d+"))) %>%
+  mutate(total = `All Nationalities\r\n[note 1]` - `British\r\n[definition 2]`) %>%
   mutate(group = "Long-term immigration to the UK") %>%
-  select(-year_full) %>%
-  rename(total = population)
+  select(c(year, total, group))
 
 # Asylum claims - accessed 28 May 2025
 # From: https://assets.publishing.service.gov.uk/media/68245fe5b9226dd8e81ab820/asylum-claims-datasets-mar-2025.xlsx
@@ -338,6 +345,18 @@ asylum_applications_yeartotals <- asylum_applications_data |>
   mutate(group = "Claims") |>
   filter((Year >= 2012) & (Year <2025)) |>
   rename(year = Year)
+
+# # Asylum grants and refusals
+# sheet_name <- "Data_Asy_D02" 
+# asylum_grants_refusals_data <- read_excel("asylum-claims-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 1) 
+# asylum_grants_refusals_data <- na.omit(asylum_grants_refusals_data)
+# 
+# asylum_grants_refusals_yeartotals <- asylum_grants_refusals_data |>
+#   group_by(Year) |>
+#   summarise(total = sum(Decisions), .groups = "drop") |>
+#   mutate(group = "Decisions") |>
+#   filter((Year >= 2012) & (Year <2025)) |>
+#   rename(year = Year)
 
 # resettled refugees (excluding Hong Kong and Ukraine schemes). Accessed 28 May 2025
 # from https://assets.publishing.service.gov.uk/media/68232edbf58b0afa5e043946/resettlement-scheme-datasets-mar-2025.xlsx
@@ -399,6 +418,7 @@ entry_clearance_visa_data <- na.omit(entry_clearance_visa_data)
 ## Study
 study_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Study") |>
+  filter(`Case outcome` == "Issued") |>
   group_by(Year) |>
   summarise(total = sum(Decisions), .groups = "drop") |>
   mutate(group = "Study visa status") |>
@@ -408,6 +428,7 @@ study_visas_yeartotals <- entry_clearance_visa_data |>
 ## Work visas 
 work_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Work") |>
+  filter(`Case outcome` == "Issued") |>
   group_by(Year) |>
   summarise(total = sum(Decisions), .groups = "drop") |>
   mutate(group = "Work visa status") |>
@@ -417,6 +438,7 @@ work_visas_yeartotals <- entry_clearance_visa_data |>
 ## Family visas
 family_visas_yeartotals <- entry_clearance_visa_data |>
   filter(`Visa type group` == "Family") |>
+  filter(`Case outcome` == "Issued") |>
   group_by(Year) |>
   summarise(total = sum(Decisions), .groups = "drop") |>
   mutate(group = "Family visa status") |>
@@ -424,22 +446,26 @@ family_visas_yeartotals <- entry_clearance_visa_data |>
   rename(year = Year)
 
 # Combine asylum and refugee related visa types 
-all_refugee_asylum_yeartotals <- rbind(asylum_applications_yeartotals, 
-                            resettled_refugee_noKHorUKr_yeartotals,
-                            bno_ukraine_data_yeartotals)
+all_refugee_asylum_yeartotals <- rbind(asylum_applications_yeartotals,
+                                       resettled_refugee_noKHorUKr_yeartotals,
+                                       bno_ukraine_data_yeartotals)
 all_refugee_asylum_yeartotals <- all_refugee_asylum_yeartotals %>%
   mutate(total = as.numeric(total)) %>% 
   group_by(year) %>%
   summarise(total = sum(total, na.rm = TRUE)) %>% 
-  mutate(group = "Asylum and refugee status")
+  mutate(group = "Asylum and humanitarian status")
 
 # Combine visa types 
-all_visa_types_totals <- rbind(for_plot_ons, study_visas_yeartotals, 
+all_visa_types_totals <- rbind(ons_cleaned, study_visas_yeartotals, 
                                work_visas_yeartotals, 
                                family_visas_yeartotals, 
                                all_refugee_asylum_yeartotals)
 
 all_visa_types_totals$year <- as.numeric(all_visa_types_totals$year)
+
+# remove 2025 data as it just represents data for one quarter 
+all_visa_types_totals <- all_visa_types_totals |>
+  filter(year != 2025)
 
 
 all_visa_types_totals$group <- factor(all_visa_types_totals$group, levels = 
@@ -447,7 +473,7 @@ all_visa_types_totals$group <- factor(all_visa_types_totals$group, levels =
                                       "Study visa status", 
                                       "Work visa status", 
                                       "Family visa status", 
-                                      "Asylum and refugee status"))
+                                      "Asylum and humanitarian status"))
 
 write.csv(all_visa_types_totals, "output/all_visa_types_totals.csv", row.names = FALSE)
 
