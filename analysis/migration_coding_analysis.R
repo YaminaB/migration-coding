@@ -78,42 +78,42 @@ generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage)
 
 # General migrant ######
 general_migrant_results <- generate_codelist_analysis(
-  codelist_path = "user/YaminaB/migration-status/47586e6d",
+  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/migration-status/4a869a0a",
   output_name = "All migration-related",
   snomed_usage = snomed_usage
 )
 
 # Country of birth ----
 cob_migrant_results <- generate_codelist_analysis(
-  codelist_path = "user/YaminaB/born-outside-the-uk/0637ca14",
+  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/born-outside-the-uk/317726d5",
   output_name = "Country of birth",
   snomed_usage = snomed_usage
 )
 
 # Interpreter needed -----
 interpreter_migrant_results <- generate_codelist_analysis(
-  codelist_path = "user/YaminaB/interpreter-required/3856b07e",
+  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/interpreter-required/2c11a6e9",
   output_name = "Interpreter-related",
   snomed_usage = snomed_usage
 )
 
 # Refugees and asylum seekers -----
 refugee_migrant_results <- generate_codelist_analysis(
-  codelist_path = "user/YaminaB/asylum-seeker-or-refugee/35a3f088",
+  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/asylum-seeker-or-refugee/35a3f088",
   output_name = "Refugee or asylum-seeker",
   snomed_usage = snomed_usage
 )
 
 # Immigration legal status -----
 legal_status_migrant_results <- generate_codelist_analysis(
-  codelist_path = "user/YaminaB/uk-visa/4eb363bd",
+  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/uk-visa/4eb363bd",
   output_name = "Immigration legal status",
   snomed_usage = snomed_usage
 )
 
 # Language
 language_migrant_results <- generate_codelist_analysis(
-  codelist_path = "user/YaminaB/english-not-main-language/2e48fb38",
+  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/english-not-main-language/7f58406a",
   output_name = "Language-related",
   snomed_usage = snomed_usage
 )
@@ -269,7 +269,7 @@ percentage_of_overall_plot <- ggplot(migration_codes_as_percentage_of_overall, a
         axis.title.y = element_text(margin = margin(r = 10))) 
 
 percentage_of_overall_plot
-ggsave("output/percentage_of_overall_plot.png", plot = percentage_of_overall_plot, width = 8, height = 6, dpi = 300)
+ggsave("output/figures/percentage_of_overall_plot.png", plot = percentage_of_overall_plot, width = 8, height = 6, dpi = 300)
 
 # Period Percentage increase in migration-related and overall SNOMED-CT code usage (Supplementary Figure 2)
 percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_date, y = perc_increase, fill = code_type)) +
@@ -290,7 +290,7 @@ percentage_increase_plot <- ggplot(percentage_increase_combined, aes(x = end_dat
         axis.title.y = element_text(margin = margin(r = 10)),) 
 
 percentage_increase_plot
-ggsave("output/percentage_increase_plot.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
+ggsave("output/figures/percentage_increase_plot.png", plot = percentage_increase_plot, width = 8, height = 6, dpi = 300)
 
 
 # Annual percentage increase in migration-related and overall SNOMED-CT code usage (Supplementary Figure 3) -----
@@ -312,7 +312,7 @@ percentage_increase_annual_plot <- ggplot(percentage_increase_combined, aes(x = 
         axis.title.y = element_text(margin = margin(r = 10)),) 
 
 percentage_increase_annual_plot
-ggsave("output/percentage_increase_annual_plot.png", plot = percentage_increase_annual_plot, width = 8, height = 6, dpi = 300)
+ggsave("output/figures/percentage_increase_annual_plot.png", plot = percentage_increase_annual_plot, width = 8, height = 6, dpi = 300)
 
 # Immigration data -----
 
@@ -346,18 +346,6 @@ asylum_applications_yeartotals <- asylum_applications_data |>
   filter((Year >= 2012) & (Year <2025)) |>
   rename(year = Year)
 
-# # Asylum grants and refusals
-# sheet_name <- "Data_Asy_D02" 
-# asylum_grants_refusals_data <- read_excel("asylum-claims-datasets-mar-2025.xlsx", sheet = sheet_name, skip = 1) 
-# asylum_grants_refusals_data <- na.omit(asylum_grants_refusals_data)
-# 
-# asylum_grants_refusals_yeartotals <- asylum_grants_refusals_data |>
-#   group_by(Year) |>
-#   summarise(total = sum(Decisions), .groups = "drop") |>
-#   mutate(group = "Decisions") |>
-#   filter((Year >= 2012) & (Year <2025)) |>
-#   rename(year = Year)
-
 # resettled refugees (excluding Hong Kong and Ukraine schemes). Accessed 28 May 2025
 # from https://assets.publishing.service.gov.uk/media/68232edbf58b0afa5e043946/resettlement-scheme-datasets-mar-2025.xlsx
 
@@ -387,7 +375,7 @@ resettled_refugee_noKHorUKr_yeartotals <- resettled_refugee_noHKorUkr_data |>
 sheet_name <- "Hum_01" 
 bno_ukraine_data <- read_excel("safe-legal-routes-summary-tables-mar-2025-tables.xlsx", sheet = sheet_name, skip = 1) 
 
-bno_ukraine_data <- bno_ukraine_data[c(7, 18, 21), 1:16]
+bno_ukraine_data <- bno_ukraine_data[c(7, 18, 21), 1:16] # exclude in-country extensions for each
 colnames(bno_ukraine_data) <- as.character(bno_ukraine_data[1, ])
 bno_ukraine_data <- bno_ukraine_data[-1, ]
 
@@ -475,7 +463,9 @@ all_visa_types_totals$group <- factor(all_visa_types_totals$group, levels =
                                       "Family visa status", 
                                       "Asylum and humanitarian status"))
 
-write.csv(all_visa_types_totals, "output/all_visa_types_totals.csv", row.names = FALSE)
+dir_create(here("output", "immigration_stats"))
+
+write.csv(all_visa_types_totals, "output/immigration_stats/all_visa_types_totals.csv", row.names = FALSE)
 
 
 plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, color = group)) +
@@ -502,13 +492,15 @@ plot_immigration_data <- ggplot(all_visa_types_totals, aes(x = year, y = total, 
 
 plot_immigration_data
 
-ggsave("output/visa_type_plot.png", plot = plot_immigration_data, width = 8, height = 6, dpi = 300)
+ggsave("output/figures/visa_type_plot.png", plot = plot_immigration_data, width = 8, height = 6, dpi = 300)
 
 # Census 2021 comparison ----
 # get snomed-ct data for 2020/21 and earlier (Census was on 21st March 2021)
 
 snomed_usage_20_21_and_earlier <- snomed_usage %>%
   filter(start_date <= "2020-08-01")
+
+cob_codelist <- cob_migrant_results$codelist
 
 cob_data_snomed <- snomed_usage_20_21_and_earlier |> 
   filter(snomed_code %in% cob_codelist$code) 
@@ -591,5 +583,5 @@ plot_census_snomed_cob <- ggplot(census_and_snomed_cob, aes(x = country, y = per
 
 plot_census_snomed_cob
 
-ggsave("output/census_snomed_cob.png", plot = plot_census_snomed_cob, width = 8, height = 6, dpi = 300)
+ggsave("output/figures/census_snomed_cob.png", plot = plot_census_snomed_cob, width = 8, height = 6, dpi = 300)
 
