@@ -78,7 +78,7 @@ generate_codelist_analysis <- function(codelist_path, output_name, snomed_usage)
 
 # General migrant ######
 general_migrant_results <- generate_codelist_analysis(
-  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/migration-status/4a869a0a",
+  codelist_path = "https://www.opencodelists.org/codelist/user/YaminaB/migration-status/5ba3fcb8",
   output_name = "All migration-related",
   snomed_usage = snomed_usage
 )
